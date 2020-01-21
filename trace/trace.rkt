@@ -1,6 +1,7 @@
 #lang racket
 
 (require racket/syntax
+         (for-syntax racket/syntax)
          syntax/id-table)
 
 (provide #%app
@@ -21,6 +22,9 @@
          (rename-out (exp& exp))
          (rename-out (log& log))
 
+         (rename-out (list& list))
+         (rename-out (cons& cons))
+         
          (rename-out (define& define))
          (rename-out (if& if))
          
@@ -125,27 +129,49 @@
 ;; ----------------------------------------
 ;; arithmetic
 
+;; note the branching in the patterns, for the cases where rest-args
+;; is a symbol, or null (dotted argument list)
 (define-syntax (define-traced-primitive stx)
   (syntax-case stx ()
     ;; f        : id?
     ;; args ... : trace? ...
     ;; body ... : expression? ...
-    [(_ (f args ...) f-name body ...)
-     (with-syntax ([(arg-vals ...) #'((val (top args)) ...)]
-                   [(arg-ids ...) #'((id (top args)) ...)]
-                   [(rev-args ...) (syntax-reverse #'(args ...))]
-                   [f-val #'f])
-       #'(define (f args ...)
-           (let* (;; shadow the actual args (which have trace annotations)
-                  [result     (let ([args arg-vals] ...) body ...)]
-                  ;; trace the arguments in reverse order
-                  [arg-traces (trace (remove-duplicates-before
-                                      (append (trace-items rev-args) ...)))]
-                  [result-name (next-name)])
+    [(_ (f args ... . rest-args) f-name body ...)
+     (with-syntax* ([(arg-vals ...) #'((val (top args)) ...)]
+                    [rest-arg-vals #'(map (compose val top) rest-args)]
+                    [(arg-ids ...) #'((id (top args)) ...)]
+                    [rest-arg-ids  #'(map (compose id top) rest-args)]
+                    [(all-arg-ids-pat ...)
+                     (if (null? (syntax->datum #'rest-args))
+                         #'(arg-ids ... '())
+                         #'(arg-ids ... rest-arg-ids))]
+                    [arg-let (if (null? (syntax->datum #'rest-args))
+                                 #'([args arg-vals] ...)
+                                 #'([args arg-vals]
+                                    ... [rest-args rest-arg-vals]))]
+                    [(rev-args ...) (syntax-reverse #'(args ... ))]
+                    [arg-traces-pat #'(append (trace-items rev-args) ...)]
+                    [all-arg-traces-pat
+                     (if (null? (syntax->datum #'rest-args))
+                         #'(trace (remove-duplicates-before
+                                   arg-traces-pat))
+                         #'(trace (remove-duplicates-before
+                                   (append
+                                    (apply append (map trace-items
+                                                       (reverse rest-args)))
+                                    arg-traces-pat))))]
+                    [f-val #'f])
+       #'(define (f args ... . rest-args)
+           (let (;; shadow the actual args (which have trace annotations)
+                 [result     (let arg-let body ...)]
+                 ;; trace the arguments in reverse order
+                 [all-arg-traces all-arg-traces-pat]
+                 [result-name (next-name)])
              (trace-add
-              arg-traces
+              all-arg-traces
+              ;; add rest-args here
               (make-assignment #:id   result-name
-                               #:expr (list f-name arg-ids ...)
+                               #:expr (list* f-name all-arg-ids-pat ...)
                                #:val  result)))))]))
 
 (define-syntax (define-traced stx)
@@ -191,9 +217,8 @@
 (define-traced-primitive (exp& a)    'exp  (exp a))
 (define-traced-primitive (log& a)    'log  (log a))
 
-;; ----------------------------------------
-;; think about defining 'list'
-;; (define (list& ))
+(define-traced-primitive (list& . items) 'list  (apply list items))
+(define-traced-primitive (cons& a b)   'cons  (cons a b))
 
 ;; ----------------------------------------
 ;; gradients
@@ -214,5 +239,3 @@
          )
     (map (λ (i) (trace-get i result)) indep-ids)
     ))
-
-
