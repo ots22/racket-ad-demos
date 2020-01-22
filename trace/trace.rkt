@@ -220,15 +220,113 @@
 (define-traced-primitive (list& . items) 'list  (apply list items))
 (define-traced-primitive (cons& a b)   'cons  (cons a b))
 
+;; map, fold etc ...
+
 ;; ----------------------------------------
 ;; gradients
 
-;; extract the value from tr if present
+;; extract the value from the trace tr if present
 (define (trace-get i tr)
   (let ([maybe-a (member i (trace-items tr) (λ (u v) (eq? u (id v))))])
     (and maybe-a (car maybe-a))))
 
 (provide trace-get)
+
+
+
+#|
+
+have lines like
+
+(assignment '%2 '(+ %0 %1) 3)
+
+what to do with them?
+
+Forward mode:
+  (assignment '%4 '(* %0 %3) 5)
+  (assignment '%3 '(+ %1 %2) 5)
+  (assignment '%2 3 3)
+  (assignment '%1 2 2)
+  (assignment '%0 1 1)
+
+- know %0 and %1 (say) are inputs (to the program)
+
+- %3 is not an input (it is a constant): can't tell this from the
+above, but know it from the function signature, which we have access
+to when taking gradient.
+
+Start, D[%0] = 1 (then D[%1] = 1, etc for each of the inputs in turn)
+
+Now, work "up" the list (in the order it's in as above, anyway), and
+apply the rules (to the 'expression' column, %nthe
+expression)
+
+a?b means a if it is known, or b:
+
+D[%0] = 1
+D[%n] = 
+  match on(E[%n]):
+   c             : 0
+   %a  (a =/= 0) : D[%a]
+   (+ %a %b)     : (+ D[%a] D[%b])
+   (* %a %b)     : (+ (* D[%a]*V[%b]) (* V[%a]*D[%b]))
+etc.
+
+Notice that we can make this reduction immediately, since if %a
+appears in E[%b], then an assignment for %a must have been seen.  If
+it hasn't, it is in part of the chain that lead to the computation of
+an argument.  Could discard this on entry (only keep the tops
+of the arg stacks) - would this always work (nested gradients)?
+
+Can apply this in order:
+
+;; make a trace a sequence, with
+
+(for/fold ([D (hash )])
+          ([a (in-trace t)])
+  (hash-set (id a) (cons (val a) (deriv (expr a) D))))
+
+where deriv is a function like the one above, taking an expression and
+environment and returning derivatives.
+
+;; note the for/fold construct in Racket
+
+;; (for best way to connect to later part - compile time code
+transform - probably want to actually keep an ordered list of
+assignments, or some opaque type)
+
+;; (can we do this without an explicit hash table, using the environment?)
+
+;; as e.g.
+
+- read these bottom to top as "let %n in (let %(n+1) in ...)"
+
+- 'eval' to do this, e.g.
+  - "let n = expr in ..." becomes "let n = expr in (let Dn = D[expr] in ...)"
+
+- could rewrite as let terms and use (eval expr ns) to evaluate in a
+new empty namespace.
+
+- all of this is a clue => do it at compile time instead.
+
+- simplest language only lets us do this. Next simplest has
+jumps/calls, and is Turing complete.
+
+|#
+
+;; takes an assignment, and an 'environment' (pairs of values and
+;; derivatives), and takes this to a derivative.
+
+;; deriv? : assignment? (Hash symbol? (number? . number?)) -> number?
+(define (deriv a env)
+  (define (get x) (hash-ref env x 0.0))
+  (define (val x) (car x))
+  (define (D x) (cdr x))
+  (match a
+    [c #:when number? 0.0]
+    [x #:when symbol? (D (get x))
+    [(+ x y) (+ (D (get x)) (D (get y)))]
+    [(* x y) (* ()]))
 
 ;; really want to build up the gradient calculation on a stack too,
 ;; making second derivatives possible
