@@ -324,9 +324,11 @@ jumps/calls, and is Turing complete.
   (define (D x) (cdr x))
   (match a
     [c #:when number? 0.0]
-    [x #:when symbol? (D (get x))
-    [(+ x y) (+ (D (get x)) (D (get y)))]
-    [(* x y) (* ()]))
+    [x #:when symbol? (D (get x))]
+    [(list '+ x y) (+ (D (get x)) (D (get y)))]
+    [(list '* x y) (match-let ([(cons x dx) (get x)]
+                               [(cons y dy) (get y)])
+                     (+ (* dx y) (* x dy)))]))
 
 ;; really want to build up the gradient calculation on a stack too,
 ;; making second derivatives possible
