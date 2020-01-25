@@ -45,13 +45,14 @@
       x
     (set! x (+ x 1))))
 
+
+(define (make-name base n)
+  (format-symbol "%~a~a" base n))
+
 (define (name-generator name [name-counter 0])
   (lambda () (make-name name (post-inc! name-counter))))
 
 (define next-name (name-generator ""))
-
-(define (make-name base n)
-  (format-symbol "%~a~a" base n))
 
 ;; Like remove-duplicates, but the *last* occurrence of any duplicate
 ;; is kept instead of the first occurrence
@@ -71,7 +72,7 @@
 
 (struct assignment (id expr val #|context|#) #:transparent)
 
-(define (make-assignment #:id id #:expr expr #:val val)
+(define (make-assignment #:id [id (next-name)] #:val val #:expr [expr val])
   (assignment id expr val))
 
 (define (id      v) (assignment-id      v))
@@ -86,12 +87,34 @@
   ;;      (write (val (top x)) port)))]
   )
 
+;; extract the trace corresponding to an id i from the trace tr, if it
+;; is present, or false
+(define (trace-get i tr)
+  (let ([maybe-a (member i (trace-items tr) (λ (u v) (eq? u (id v))))])
+    (if maybe-a
+        (trace maybe-a)
+        #f)))
+
 (define (trace-add t . vs)
   (struct-copy trace t
                [items (append vs (trace-items t))]))
 
 (define (trace-append . ts)
   (trace (apply append (map trace-items ts))))
+
+(define (trace-remove-duplicates t)
+  (trace (remove-duplicates-before (trace-items t))))
+
+(define (trace-prune t)
+  (define (rec t seen)
+    (match (expr (top t))
+      [x #:when (symbol? x) (rec (trace-get x t) (set-add seen x))]
+      [(list f xs ...)
+       (apply set-union 
+              (map (λ (x) (rec (trace-get x t) (set-add seen x))) xs))]
+      [_ seen]))
+  (let ([seen (rec t (set (id (top t))))])
+    (trace (filter (λ (a) (set-member? seen (id a))) (trace-items t)))))
 
 (define (top t) (car (trace-items t)))
 
@@ -125,7 +148,7 @@
 (define-syntax (datum stx)
   (syntax-case stx ()
     [(_ . d)
-     #'(trace (list (assignment (next-name) (#%datum . d) (#%datum . d))))]))
+     #'(trace (list (make-assignment #:val (#%datum . d))))]))
 
 
 ;; ----------------------------------------
@@ -155,8 +178,7 @@
                     [arg-traces-pat #'(append (trace-items rev-args) ...)]
                     [all-arg-traces-pat
                      (if (null? (syntax->datum #'rest-args))
-                         #'(trace (remove-duplicates-before
-                                   arg-traces-pat))
+                         #'(trace (remove-duplicates-before arg-traces-pat))
                          #'(trace (remove-duplicates-before
                                    (append
                                     (apply append (map trace-items
@@ -183,15 +205,8 @@
        #'(define (f args ...)
            (let ([arg-traces (trace (append (trace-items rev-args) ...))]
                  [result-trace (let () body ...)])
-             (trace
-              (remove-duplicates-before
-               (trace-items
-                (trace-add
-                 (trace-append result-trace arg-traces)
-                 (make-assignment #:id (next-name)
-                                  #:expr (id (top result-trace))
-                                  #:val (val (top result-trace))))
-                ))))))]))
+             (trace-remove-duplicates 
+              (trace-append result-trace arg-traces)))))]))
 
 (define-syntax (define& stx)
   (syntax-case stx ()
@@ -222,20 +237,14 @@
 (define-traced-primitive (list& . items) 'list  (apply list items))
 (define-traced-primitive (cons& a b)   'cons  (cons a b))
 
+(define-traced-primitive (range& n) 'range (range n))
+
 ;; map, fold etc ...
 
 ;; ----------------------------------------
 ;; gradients
 
-;; extract the trace corresponding to an id i from the trace tr, if it
-;; is present, or false
-(define (trace-get i tr)
-  (let ([maybe-a (member i (trace-items tr) (λ (u v) (eq? u (id v))))])
-    (if maybe-a
-        (trace maybe-a)
-        #f)))
 
-(provide trace-get)
 
 
 
