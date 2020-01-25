@@ -24,12 +24,12 @@
 
          (rename-out (list& list))
          (rename-out (cons& cons))
-         
+
          (rename-out (range& range))
 
          (rename-out (define& define))
          (rename-out (if& if))
-         
+
          (rename-out (D& D))
          grad
 
@@ -86,7 +86,7 @@
 
 (struct trace (items) #:transparent
   ;; #:methods gen:custom-write
-  ;; [(define write-proc 
+  ;; [(define write-proc
   ;;    (lambda (x port mode)
   ;;      (write (val (top x)) port)))]
   )
@@ -113,7 +113,7 @@
     (match (expr (top t))
       [x #:when (symbol? x) (rec (trace-get x t) (set-add seen x))]
       [(list f xs ...)
-       (apply set-union 
+       (apply set-union
               (map (λ (x) (rec (trace-get x t) (set-add seen x))) xs))]
       [_ seen]))
   (let ([seen (rec t (set (id (top t))))])
@@ -208,7 +208,7 @@
        #'(define (f args ...)
            (let ([arg-traces (trace (append (trace-items rev-args) ...))]
                  [result-trace (let () body ...)])
-             (trace-remove-duplicates 
+             (trace-remove-duplicates
               (trace-append result-trace arg-traces)))))]))
 
 (define-syntax (define& stx)
@@ -281,7 +281,7 @@ expression)
 a?b means a if it is known, or b:
 
 D[%0] = 1
-D[%n] = 
+D[%n] =
   match on(E[%n]):
    c             : 0
    %a  (a =/= 0) : D[%a]
@@ -335,7 +335,7 @@ jumps/calls, and is Turing complete.
 ;; to derivatives in the trace), and returns additional trace items
 ;; for computing the derivative.
 
-;; 
+;;
 (define (deriv assgn var indep-ids tr deriv-map)
   ;; the value of the identifier x
   (define (I x) (trace-get x tr))
@@ -378,4 +378,4 @@ jumps/calls, and is Turing complete.
     (apply list& Di)))
 
 (define (D& i f) (D (val (top i)) f))
-  
+
