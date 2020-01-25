@@ -25,15 +25,18 @@
          (rename-out (list& list))
          (rename-out (cons& cons))
          
+         (rename-out (range& range))
+
          (rename-out (define& define))
          (rename-out (if& if))
          
+         (rename-out (D& D))
+
          display-trace
-         grad
+
+         lambda
+         λ
          )
-
-
-;; based on nocell
 
 ;; ----------------------------------------
 ;; utils (uses set! for the counter)
@@ -333,31 +336,48 @@ jumps/calls, and is Turing complete.
 ;; for computing the derivative.
 
 ;; 
-(define (deriv a tr env)
+(define (deriv assgn var indep-ids tr deriv-map)
   ;; the symbol corresponding to the derivative of symbol x
-  (define (D x) (hash-ref env x))
+  (define (D x) (hash-ref deriv-map x))
   (define (get x) (trace-get x tr))
   ;; match on an assignment
-  (match a
-    [c #:when (number? c) (datum 0.0)]
-    [x #:when (symbol? x) (get (D x))]
-    [(list '+ x y) (let ([Dx (get (D x))]
-                         [Dy (get (D y))])
-                     (+& Dx Dy))]
-    [(list '* x y) (let ([x (get x)]
-                         [y (get y)]
-                         [Dx (get (D x))]
-                         [Dy (get (D y))])
-                     (+& (*& Dx y) (*& x Dy)))]
-    [(list 'exp x) (*& (get (D x)) (exp& (get x)))]
-    ))
+  (cond
+    [(eq? (id assgn) var) (datum . 1.0)]
+    [(memq (id assgn) indep-ids) (datum . 0.0)]
+    [else
+     (match (expr assgn)
+       [c #:when (number? c) (datum . 0.0)]
+       [x #:when (symbol? x)          (get (D x))]
+       [(list '+ x y) (let ([Dx (get (D x))]
+                            [Dy (get (D y))])
+                        (+& Dx Dy))]
+       [(list '* x y) (let ([x (get x)]
+                            [y (get y)]
+                            [Dx (get (D x))]
+                            [Dy (get (D y))])
+                        (+& (*& Dx y) (*& x Dy)))]
+       [(list 'exp x) (*& (get (D x)) (exp& (get x)))]
+       )]))
 
-;; really want to build up the gradient calculation on a stack too,
-;; making second derivatives possible
+(define ((D i f) . xs)
+  (let* ([var       (id (top (list-ref xs i)))]
+         [indep-ids (map (compose id top) xs)]
+         [result    (apply f xs)]
+         [result-id (id (top result))])
+    (define-values (Dresult _)
+      (for/fold ([tr result]
+                 [deriv-map (hash)])
+                ([a (reverse (trace-items result))])
+        (let* ([Da (deriv a var indep-ids tr deriv-map)])
+          (values
+           (trace-append Da tr)
+           (hash-set deriv-map (id a) (id (top Da)))
+           ))))
+    (trace-prune (trace-remove-duplicates Dresult))))
+
 (define ((grad f) . xs)
-  (let* ([indep-ids (map (compose id top) xs)]
-         [result (apply f xs)]
-         [result-id (id (top (apply f xs)))]
-         )
-    (map (λ (i) (trace-get i result)) indep-ids)
-    ))
+  (map (lambda (i) (D i f)) (range (length xs))))
+
+(define (D& i f) (D (val (top i)) f))
+
+
