@@ -31,6 +31,7 @@
          (rename-out (if& if))
          
          (rename-out (D& D))
+         grad
 
          display-trace
 
@@ -92,15 +93,14 @@
 
 ;; extract the trace corresponding to an id i from the trace tr, if it
 ;; is present, or false
-(define (trace-get i tr)
-  (let ([maybe-a (member i (trace-items tr) (λ (u v) (eq? u (id v))))])
+(define (trace-get s tr)
+  (let ([maybe-a (member s (trace-items tr) (λ (u v) (eq? u (id v))))])
     (if maybe-a
         (trace maybe-a)
         #f)))
 
 (define (trace-add t . vs)
-  (struct-copy trace t
-               [items (append vs (trace-items t))]))
+  (struct-copy trace t [items (append vs (trace-items t))]))
 
 (define (trace-append . ts)
   (trace (apply append (map trace-items ts))))
@@ -338,8 +338,8 @@ jumps/calls, and is Turing complete.
 ;; 
 (define (deriv assgn var indep-ids tr deriv-map)
   ;; the symbol corresponding to the derivative of symbol x
-  (define (D x) (hash-ref deriv-map x))
-  (define (get x) (trace-get x tr))
+  (define (I x) (trace-get x tr))
+  (define (D x) (I (hash-ref deriv-map x)))
   ;; match on an assignment
   (cond
     [(eq? (id assgn) var) (datum . 1.0)]
@@ -347,16 +347,14 @@ jumps/calls, and is Turing complete.
     [else
      (match (expr assgn)
        [c #:when (number? c) (datum . 0.0)]
-       [x #:when (symbol? x)          (get (D x))]
-       [(list '+ x y) (let ([Dx (get (D x))]
-                            [Dy (get (D y))])
-                        (+& Dx Dy))]
-       [(list '* x y) (let ([x (get x)]
-                            [y (get y)]
-                            [Dx (get (D x))]
-                            [Dy (get (D y))])
-                        (+& (*& Dx y) (*& x Dy)))]
-       [(list 'exp x) (*& (get (D x)) (exp& (get x)))]
+       [x #:when (symbol? x) (D x)]
+       [(list '+ x y) (+& (D x) (D y))]
+       [(list '- x y) (-& (D x) (D y))]
+       [(list '* x y) (+& (*& (D x) (I y)) (*& (I x) (D y)))]
+       [(list 'exp x) (*& (D x) (exp& (I x)))]
+       [(list 'list xs ...) (apply list& (map D xs))]
+       ;; add more cases here
+       ;; ...
        )]))
 
 (define ((D i f) . xs)
@@ -369,14 +367,15 @@ jumps/calls, and is Turing complete.
                  [deriv-map (hash)])
                 ([a (reverse (trace-items result))])
         (let* ([Da (deriv a var indep-ids tr deriv-map)])
-          (values
+          {values
            (trace-append Da tr)
-           (hash-set deriv-map (id a) (id (top Da)))
-           ))))
+           (hash-set deriv-map (id a) (id (top Da)))})))
     (trace-prune (trace-remove-duplicates Dresult))))
 
 (define ((grad f) . xs)
-  (map (lambda (i) (D i f)) (range (length xs))))
+  (let* ([n (length xs)]
+         [Di_xs (for/list ([i (range n)]) (apply (D i f) xs))])
+    (apply list& Di_xs)))
 
 (define (D& i f) (D (val (top i)) f))
 
