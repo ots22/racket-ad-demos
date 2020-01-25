@@ -38,6 +38,8 @@
 ;; ----------------------------------------
 ;; utils (uses set! for the counter)
 
+(define ((flip f) a b) (f b a))
+
 (define-syntax-rule (post-inc! x)
   (begin0
       x
