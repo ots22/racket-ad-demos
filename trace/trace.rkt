@@ -337,10 +337,10 @@ jumps/calls, and is Turing complete.
 
 ;; 
 (define (deriv assgn var indep-ids tr deriv-map)
-  ;; the symbol corresponding to the derivative of symbol x
+  ;; the value of the identifier x
   (define (I x) (trace-get x tr))
+  ;; the value of the identifier which is the derivative of identifier x
   (define (D x) (I (hash-ref deriv-map x)))
-  ;; match on an assignment
   (cond
     [(eq? (id assgn) var) (datum . 1.0)]
     [(memq (id assgn) indep-ids) (datum . 0.0)]
@@ -374,9 +374,8 @@ jumps/calls, and is Turing complete.
 
 (define ((grad f) . xs)
   (let* ([n (length xs)]
-         [Di_xs (for/list ([i (range n)]) (apply (D i f) xs))])
-    (apply list& Di_xs)))
+         [Di (for/list ([i (range n)]) (apply (D i f) xs))])
+    (apply list& Di)))
 
 (define (D& i f) (D (val (top i)) f))
-
-
+  
