@@ -225,10 +225,13 @@
 ;; ----------------------------------------
 ;; gradients
 
-;; extract the value from the trace tr if present
+;; extract the trace corresponding to an id i from the trace tr, if it
+;; is present, or false
 (define (trace-get i tr)
   (let ([maybe-a (member i (trace-items tr) (λ (u v) (eq? u (id v))))])
-    (and maybe-a (car maybe-a))))
+    (if maybe-a
+        (trace maybe-a)
+        #f)))
 
 (provide trace-get)
 
@@ -314,21 +317,29 @@ jumps/calls, and is Turing complete.
 
 |#
 
-;; takes an assignment, and an 'environment' (pairs of values and
-;; derivatives), and takes this to a derivative.
+;; takes an assignment, a trace, and an environment (mapping of values
+;; to derivatives in the trace), and returns additional trace items
+;; for computing the derivative.
 
-;; deriv? : assignment? (Hash symbol? (number? . number?)) -> number?
-(define (deriv a env)
-  (define (get x) (hash-ref env x 0.0))
-  (define (val x) (car x))
-  (define (D x) (cdr x))
+;; 
+(define (deriv a tr env)
+  ;; the symbol corresponding to the derivative of symbol x
+  (define (D x) (hash-ref env x))
+  (define (get x) (trace-get x tr))
+  ;; match on an assignment
   (match a
-    [c #:when number? 0.0]
-    [x #:when symbol? (D (get x))]
-    [(list '+ x y) (+ (D (get x)) (D (get y)))]
-    [(list '* x y) (match-let ([(cons x dx) (get x)]
-                               [(cons y dy) (get y)])
-                     (+ (* dx y) (* x dy)))]))
+    [c #:when (number? c) (datum 0.0)]
+    [x #:when (symbol? x) (get (D x))]
+    [(list '+ x y) (let ([Dx (get (D x))]
+                         [Dy (get (D y))])
+                     (+& Dx Dy))]
+    [(list '* x y) (let ([x (get x)]
+                         [y (get y)]
+                         [Dx (get (D x))]
+                         [Dy (get (D y))])
+                     (+& (*& Dx y) (*& x Dy)))]
+    [(list 'exp x) (*& (get (D x)) (exp& (get x)))]
+    ))
 
 ;; really want to build up the gradient calculation on a stack too,
 ;; making second derivatives possible
