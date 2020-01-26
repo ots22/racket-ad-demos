@@ -33,7 +33,7 @@
          (rename-out (D& D))
          grad
 
-         display-trace
+         trace-show
 
          lambda
          λ
@@ -108,41 +108,40 @@
 (define (trace-remove-duplicates t)
   (trace (remove-duplicates-before (trace-items t))))
 
+(define (top t) (car (trace-items t)))
+
+(define (top-id t)   (id (top t)))
+(define (top-expr t) (expr (top t)))
+(define (top-val t)  (val (top t)))
+
 (define (trace-prune t)
   (define (rec t seen)
-    (match (expr (top t))
+    (match (top-expr t)
       [x #:when (symbol? x) (rec (trace-get x t) (set-add seen x))]
       [(list f xs ...)
        (apply set-union
               (map (λ (x) (rec (trace-get x t) (set-add seen x))) xs))]
       [_ seen]))
-  (let ([seen (rec t (set (id (top t))))])
+  (let ([seen (rec t (set (top-id t)))])
     (trace (filter (λ (a) (set-member? seen (id a))) (trace-items t)))))
 
-(define (top t) (car (trace-items t)))
 
-;; pretty print the trace
-(define (display-trace t)
+(define (trace-show t)
   (let* ([id-fmt        (map (compose ~a id) (trace-items t))]
          [expr-fmt      (map (compose ~a expr) (trace-items t))]
          [val-fmt       (map (compose ~a val) (trace-items t))]
-         ;;[context-fmt   (map (compose ~a id) t)]
          [id-width      (apply max (map string-length id-fmt))]
          [expr-width    (apply max (map string-length expr-fmt))]
-         [val-width     (apply max (map string-length val-fmt))]
-         ;;[context-width (apply max (map string-length context-fmt))]
-         )
+         [val-width     (apply max (map string-length val-fmt))])
 
-    (display (foldl (lambda (i e v #|c|# acc)
+    (display (foldl (lambda (i e v acc)
                       (string-append
                        (format "~a | ~a | ~a~%"
                                (~a i #:min-width id-width)
                                (~a e #:min-width expr-width)
-                               (~a v #:min-width val-width)
-                               ;(~a c #:min-width context-width)
-                               )
+                               (~a v #:min-width val-width))
                        acc))
-                    "" id-fmt expr-fmt val-fmt #|context-fmt|#))))
+                    "" id-fmt expr-fmt val-fmt))))
 
 ;; ----------------------------------------
 ;; datum
@@ -165,10 +164,10 @@
     ;; args ... : trace? ...
     ;; body ... : expression? ...
     [(_ (f args ... . rest-args) f-name body ...)
-     (with-syntax* ([(arg-vals ...) #'((val (top args)) ...)]
-                    [rest-arg-vals #'(map (compose val top) rest-args)]
-                    [(arg-ids ...) #'((id (top args)) ...)]
-                    [rest-arg-ids  #'(map (compose id top) rest-args)]
+     (with-syntax* ([(arg-vals ...) #'((top-val args) ...)]
+                    [rest-arg-vals #'(map top-val rest-args)]
+                    [(arg-ids ...) #'((top-id args) ...)]
+                    [rest-arg-ids  #'(map top-id rest-args)]
                     [(all-arg-ids-pat ...)
                      (if (null? (syntax->datum #'rest-args))
                          #'(arg-ids ... '())
@@ -220,7 +219,7 @@
 (define-syntax (if& stx)
   (syntax-case stx ()
     [(_ test-expr then-expr else-expr)
-     #'(if (val (top test-expr))
+     #'(if (top-val test-expr)
            then-expr
            else-expr)]))
 
@@ -358,10 +357,9 @@ jumps/calls, and is Turing complete.
        )]))
 
 (define ((D i f) . xs)
-  (let* ([var       (id (top (list-ref xs i)))]
-         [indep-ids (map (compose id top) xs)]
-         [result    (apply f xs)]
-         [result-id (id (top result))])
+  (let* ([var       (top-id (list-ref xs i))]
+         [indep-ids (map top-id xs)]
+         [result    (apply f xs)])
     (define-values (Dresult _)
       (for/fold ([tr result]
                  [deriv-map (hash)])
@@ -369,7 +367,7 @@ jumps/calls, and is Turing complete.
         (let* ([Da (deriv a var indep-ids tr deriv-map)])
           {values
            (trace-append Da tr)
-           (hash-set deriv-map (id a) (id (top Da)))})))
+           (hash-set deriv-map (id a) (top-id Da))})))
     (trace-prune (trace-remove-duplicates Dresult))))
 
 (define ((grad f) . xs)
@@ -377,5 +375,149 @@ jumps/calls, and is Turing complete.
          [Di (for/list ([i (range n)]) (apply (D i f) xs))])
     (apply list& Di)))
 
-(define (D& i f) (D (val (top i)) f))
+(define (D& i f) (D (top-val i) f))
 
+;; ----------------------------------------
+;; Reverse mode AD
+
+#|
+
+output is seeded with 1.  (Lists seeded one element at a time?)
+
+  (assignment '%4 '(* %0 %3) 5)
+  (assignment '%3 '(+ %1 %2) 5)
+  (assignment '%2 3 3)
+  (assignment '%1 2 2)
+  (assignment '%0 1 1)
+
+- Adj(%4) is 1.
+- Start at the top.
+
+- When an identifier is seen, emit an expression for its
+adjoint (using the sum of what has been accumulated so far).  No need
+to record it anywhere globally.
+
+- (assignment '%a '(f %b %c) val):
+
+  - Emit expressions for %d = Adj(%a), as the sum of what has been
+    seen so far
+
+  - Emit new assignments for: (* ((D i f) %b %c) %d)
+    Record these (in a map of a -> terms of Adj(a))
+
+
+- Adj(%3) += %0 * Adj(%4)
+- Adj(%0) += %3 * Adj(%4)
+
+- emit the adjoints of the independent variables
+
+- lists/conses etc?
+
+|#
+
+;; adjoint : assignment? id? trace? ?? -> (Listof )
+;; (define (adjoint assgn seed tr adjoint-map)
+;;   ;; the value of the identifier x
+;;   (define (I x) (trace-get x tr))
+;;   ;; the value of the identifier which is the derivative of identifier x
+;;   (define (D x) (I (hash-ref deriv-map x)))
+;;   (cond
+;;     [(eq? (id assgn) seed) (datum . 1.0)]
+;;     [else
+;;      (match (expr assgn)
+;;        [c #:when (number? c) (datum . 0.0)]
+;;        [x #:when (symbol? x) (D x)]
+;;        [(list '+ x y) (+& (D x) (D y))]
+;;        [(list '- x y) (-& (D x) (D y))]
+;;        [(list '* x y) (+& (*& (D x) (I y)) (*& (I x) (D y)))]
+;;        [(list 'exp x) (*& (D x) (exp& (I x)))]
+;;        [(list 'list xs ...) (apply list& (map D xs))]
+;;        ;; add more cases here
+;;        ;; ...
+;;        )]))
+
+;; ith partial derivative of f, evaluated at xs
+;; e.g.
+;; ((pderiv 0 '*) 3.0 2.0) ;; => 2.0
+;; (define ((pderiv i assgn) . xs)
+;;   (match (expr assgn)
+;;     [c #:when (number? c) (datum . 0.0)]
+;;     [x #:when (symbol? x) (datum . 1.0)]
+;;     [(list '+ x y) (case i [0 x] [1 y])]
+;;     [(list '*
+;;   )
+
+(define (hash-list-append ht k vs)
+  (hash-update ht k 
+               (λ (current-vs) (append vs current-vs))
+               (λ () (list))))
+
+(define (upd-adj adj-table k t)
+  (hash-list-append adj-table k (list (top-id t))))
+
+;; (module+ test
+;;   (hash-list-append (hash 1 '(2 3)) 1 '(0 5))
+;;   (hash 1 (0 5 2 3))
+;;   (hash-list-append (hash 1 '(2 3)) 2 '(0 5))
+;;   (hash 1 '(2 3) 2 '(0 5)))
+         
+
+(define ((D_r i f) . xs)
+  (let* ([indep-ids (map top-id xs)]
+         [result    (apply f xs)] ;; i'th element of result list
+         [seed      (top-id result)]
+         [result*   (trace-add result (make-assignment #:val 1.0))])
+
+    (define-values (D_j _ adjoints)
+      (for/fold ([tr result*]
+                 ;; terms (Listof ids) contributing to the adjoint of the key
+                 [adjoint-map (hash seed (list (top-id result*)))]
+                 ;; the adjoints of each id seen
+                 [adjoints (hash)])
+                ([a (trace-items result)])
+        
+        ;; helper: get the current trace of x
+        (define (I x) (trace-get x tr))
+
+        (let* (;; list of traces of the terms that sum to Adj (id a)
+               [adj-terms (map I (hash-ref adjoint-map (id a)))]
+               ;; the trace of adj-a (summed) - adj-terms can't be empty
+               [tr* (trace-append
+                     (foldl +& (car adj-terms) (cdr adj-terms)) tr)]
+               [adjoints* (hash-set adjoints (id a) (top-id tr*))])
+
+          (match (expr a)
+            [c #:when (number? c) 
+               {values tr*
+                       adjoint-map
+                       adjoints*}]
+
+            [x #:when (symbol? x)
+               {values tr*
+                       (upd-adj adjoint-map x tr*)
+                       adjoints*}]
+
+            [(list '+ x y)
+             {values tr*
+                     (upd-adj (upd-adj adjoint-map x tr*) y tr*)
+                     adjoints*}]
+
+            [(list '* x y) 
+             (let ([Ax (*& (I y) tr*)]
+                   [Ay (*& (I x) tr*)])
+               {values (trace-append Ay Ax)
+                       (upd-adj (upd-adj adjoint-map x Ax) y Ay)
+                       adjoints*})]
+
+            [(list 'exp x) 
+             (let ([Ax (*& (exp& (I x)) tr*)])
+               {values Ax
+                       (upd-adj adjoint-map x Ax)
+                       adjoints*})]))))
+
+    (map (λ (k) (hash-ref adjoints k 0.0)) indep-ids)
+    
+    (let* ([D_j* (trace-add D_j (make-assignment #:val 0.0))]
+           [zero_id (top-id D_j*)])
+      (apply list& (for/list ([k indep-ids])
+                     (trace-get (hash-ref adjoints k zero_id) D_j*))))))
