@@ -70,7 +70,7 @@
 (define (val  v) (assignment-val  v))
 
 
-(struct trace (items) 
+(struct trace (items) #:transparent
   #:guard (struct-guard/c (listof assignment?))
   #:methods gen:custom-write
   [(define write-proc
@@ -116,6 +116,9 @@
   (define c (make-assignment #:id 'c #:val 2))
   (define tr (trace (list a b a c)))
   (define expected (make-trace b a c))
+  (trace-display expected)
+  (trace-display (trace-remove-duplicates tr))
+
   (check-equal? (trace-remove-duplicates tr)
                 expected))
 
