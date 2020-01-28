@@ -370,6 +370,8 @@ to record it anywhere globally.
         ;; helper: get the current trace of x
         (define (I x) (trace-get x tr))
 
+        ;; firstly, calculate the adjoint of the current term, a, and
+        ;; put this at the head of the trace tr, as tr*.
         (let* (;; list of traces of the terms that sum to Adj (id a)
                [adj-terms (map I (hash-ref adjoint-map (id a)))]
                ;; the trace of adj-a (summed) - adj-terms can't be empty
