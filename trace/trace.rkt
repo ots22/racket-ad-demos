@@ -104,6 +104,12 @@
 (define (trace-append . ts)
   (trace (apply append (map trace-items ts))))
 
+(module+ test
+  (trace-append (make-trace (make-assignment #:val 1))
+                (make-trace (make-assignment #:val 2)))
+  (apply trace-append (list (make-trace (make-assignment #:val 1))
+                            (make-trace (make-assignment #:val 2)))))
+
 ;; Remove duplicate items from trace
 ;;
 ;; trace-remove-duplicates : trace? -> trace?
