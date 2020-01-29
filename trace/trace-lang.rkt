@@ -21,13 +21,24 @@
          (rename-out (list& list))
          (rename-out (cons& cons))
 
+         (rename-out (car& car))
+         (rename-out (cdr& cdr))
+         
+         (rename-out (null?& null?))
+         (rename-out (pair?& pair?))
+         (rename-out (null& null))
+
          (rename-out (range& range))
 
          (rename-out (define& define))
          (rename-out (if& if))
 
+         (rename-out (not& not))
+
          (rename-out (D& D))
          grad
+         
+         and
 
          trace-display
 
@@ -113,8 +124,9 @@
        #'(define (f args ...)
            (let ([arg-traces (trace-append rev-args ...)]
                  [result-trace (let () body ...)])
-             (trace-remove-duplicates
-              (trace-append result-trace arg-traces)))))]))
+             (trace-prune
+              (trace-remove-duplicates
+               (trace-append result-trace arg-traces))))))]))
 
 ;; Provided define form
 (define-syntax (define& stx)
@@ -129,6 +141,8 @@
      #'(if (top-val test-expr)
            then-expr
            else-expr)]))
+
+(define-traced-primitive (not& a)    'not  (not a))
 
 (define-traced-primitive (+& a b)    '+    (+ a b))
 (define-traced-primitive (-& a b)    '-    (- a b))
@@ -145,6 +159,16 @@
 
 (define-traced-primitive (list& . items) 'list  (apply list items))
 (define-traced-primitive (cons& a b)   'cons  (cons a b))
+
+(define-syntax null&
+  (lambda (stx)
+    #'(datum . ())))
+
+(define-traced-primitive (car& a) 'car (car a))
+(define-traced-primitive (cdr& a) 'cdr (cdr a))
+
+(define-traced-primitive (null?& a) 'null? (null? a))
+(define-traced-primitive (pair?& a) 'pair? (pair? a))
 
 (define-traced-primitive (range& n) 'range (range n))
 
