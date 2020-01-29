@@ -119,11 +119,22 @@
 
 (define-syntax (define-traced stx)
   (syntax-case stx ()
-    [(_ (f args ...) body ...)
-     (with-syntax ([(rev-args ...) (syntax-reverse #'(args ...))])
-       #'(define (f args ...)
-           (let ([arg-traces (trace-append rev-args ...)]
-                 [result-trace (let () body ...)])
+    [(_ (f args ... . rest-args) body ...)
+     (with-syntax* ([(rev-args ...) (syntax-reverse #'(args ...))]
+                    [rev-args-trace
+                     (if (null? (syntax->datum #'rest-args))
+                         #'(trace-append rev-args ...)
+                         #'(trace-append
+                            (apply trace-append (reverse rest-args))
+                            rev-args ...))]
+                    [(rest-arg-let-binding ...)
+                     (if (null? (syntax->datum #'rest-args))
+                         #'()
+                         #'((rest-args (foldl cons& null& (reverse rest-args)))))])
+       #'(define (f args ... . rest-args)
+           (let* ([arg-traces rev-args-trace]
+                  rest-arg-let-binding ...
+                  [result-trace (let () body ...)])
              (trace-prune
               (trace-remove-duplicates
                (trace-append result-trace arg-traces))))))]))
@@ -131,8 +142,8 @@
 ;; Provided define form
 (define-syntax (define& stx)
   (syntax-case stx ()
-    [(_ (id args ...) body ...)
-     #'(define-traced (id args ...) body ...)]
+    [(_ (id args ... . rest-args) body ...)
+     #'(define-traced (id args ... . rest-args) body ...)]
     [(_ id expr) #'(define id expr)]))
 
 (define-syntax (if& stx)
@@ -157,12 +168,10 @@
 (define-traced-primitive (exp& a)    'exp  (exp a))
 (define-traced-primitive (log& a)    'log  (log a))
 
-(define-traced-primitive (list& . items) 'list  (apply list items))
 (define-traced-primitive (cons& a b)   'cons  (cons a b))
+(define-traced (list& . xs) xs)
 
-(define-syntax null&
-  (lambda (stx)
-    #'(datum . ())))
+(define-syntax null& (lambda (stx) #'(datum . ())))
 
 (define-traced-primitive (car& a) 'car (car a))
 (define-traced-primitive (cdr& a) 'cdr (cdr a))
@@ -294,13 +303,13 @@ jumps/calls, and is Turing complete.
     [(memq (id assgn) indep-ids) (datum . 0.0)]
     [else
      (match (expr assgn)
-       [(list 'constant c)       (datum . 0.0)]
-       [(list 'ref x)            (D x)]
-       [(list 'app '+ x y)       (+& (D x) (D y))]
-       [(list 'app '- x y)       (-& (D x) (D y))]
-       [(list 'app '* x y)       (+& (*& (D x) (I y)) (*& (I x) (D y)))]
-       [(list 'app 'exp x)       (*& (D x) (exp& (I x)))]
-       [(list 'app 'list xs ...) (apply list& (map D xs))]
+       [(list 'constant c)    (datum . 0.0)]
+       [(list 'ref x)         (D x)]
+       [(list 'app '+ x y)    (+& (D x) (D y))]
+       [(list 'app '- x y)    (-& (D x) (D y))]
+       [(list 'app '* x y)    (+& (*& (D x) (I y)) (*& (I x) (D y)))]
+       [(list 'app 'exp x)    (*& (D x) (exp& (I x)))]
+       [(list 'app 'cons x y) (cons& (D x) (D y))]
        ;; add more cases here
        ;; ...
        )]))
