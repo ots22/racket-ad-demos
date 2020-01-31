@@ -1,7 +1,7 @@
 #lang racket
 
-(provide (rename-out (D& D))
-         grad)
+(provide (rename-out (D/f& D/f))
+         grad/f)
 
 (require "util.rkt"
          "trace.rkt"
@@ -20,20 +20,26 @@
                  "i" i
                  "op" op))
   (case op
-    [(identity) (case i
-                  [(0)   (datum . 1.0)]
-                  [else  (err)]
-                  )]
     [(+)        (case i
                   [(0 1) (datum . 1.0)]
                   [else  (err)])]
+    [(-)        (case i
+                  [(0)   (datum . 1.0)]
+                  [(1)   (datum . -1.0)]
+                  [else (err)])]
     [(*)        (case i
                   [(0)   (cadr xs)]
                   [(1)   (car  xs)]
                   [else  (err)])]
     [(exp)      (case i
                   [(0)   (exp& (car xs))]
-                  [else  (err)])]))
+                  [else  (err)])]
+
+    ;; add more cases here...
+
+    [else (err)]
+
+    ))
 
 (module+ test
   (test-case "pderiv"
@@ -124,9 +130,9 @@ jumps/calls, and is Turing complete.
 ;; to derivatives in the trace), and returns additional trace items
 ;; for computing the derivative.
 ;;
-;; deriv : assignment? symbol? (Listof symbol?) trace?
+;; deriv/f : assignment? symbol? (Listof symbol?) trace?
 ;;     (HashTable symbol? symbol?) -> trace?
-(define (deriv assgn var indep-ids tr deriv-map)
+(define (deriv/f assgn var indep-ids tr deriv-map)
   ;; the value of the identifier x
   (define (I x) (trace-get x tr))
   ;; the value of the identifier which is the derivative of identifier x
@@ -136,22 +142,20 @@ jumps/calls, and is Turing complete.
     [(memq (id assgn) indep-ids) (datum . 0.0)]
     [else
      (match (expr assgn)
-       [(list 'constant c)      (datum . 0.0)]
-       [(list 'app 'identity x) (D x)]
-       [(list 'app '+ x y)      (+& (D x) (D y))]
-       [(list 'app '- x y)      (-& (D x) (D y))]
-       [(list 'app '* x y)      (+& (*& (D x) (I y)) (*& (I x) (D y)))]
-       [(list 'app 'exp x)      (*& (D x) (exp& (I x)))]
-       [(list 'app 'cons x y)   (cons& (D x) (D y))]
-       ;; add more cases here
-       ;; ...
-       )]))
+       [(list 'constant c)    (datum . 0.0)]
+       [(list 'app 'cons x y) (cons& (D x) (D y))]
+       [(list 'app op xs ...) (let ([xs& (map I xs)])
+                                (for/fold ([acc (datum . 0.0)])
+                                          ([i (in-range (length xs))]
+                                           [x xs])
+                                  (define D_i_op (apply pderiv i op xs&))
+                                  (+& (*& D_i_op (D x)) acc)))])]))
 
 ;; The i'th partial derivative of f, evaluated as xs, computed by
 ;; forward accumulation 
 ;;
-;; D : integer? (trace? ... -> trace?) -> trace? ... -> trace?
-(define ((D i f) . xs)
+;; D/f : integer? (trace? ... -> trace?) -> trace? ... -> trace?
+(define ((D/f i f) . xs)
   (let* ([var       (top-id (list-ref xs i))]
          [indep-ids (map top-id xs)]
          [result    (apply f xs)])
@@ -159,21 +163,21 @@ jumps/calls, and is Turing complete.
       (for/fold ([tr result]
                  [deriv-map (hash)])
                 ([a (reverse (trace-items result))])
-        (let* ([Da (deriv a var indep-ids tr deriv-map)])
+        (let* ([Da (deriv/f a var indep-ids tr deriv-map)])
           {values
            (trace-append Da tr)
            (hash-set deriv-map (id a) (top-id Da))})))
     (trace-prune (trace-remove-duplicates Dresult))))
 
-;; The operator D, for providing to the tracing lang
+;; The operator D/f, for providing to the tracing lang
 ;;
 ;; D& : trace? (trace? ... -> trace?) -> trace? ... -> trace?
-(define (D& i f) (D (top-val i) f))
+(define (D/f& i f) (D/f (top-val i) f))
 
-;; The gradient of f at xs
+;; The gradient of f at xs, computed by forward accumulation
 ;;
 ;; grad : (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define ((grad f) . xs)
+(define ((grad/f f) . xs)
   (let* ([n (length xs)]
          [Di (for/list ([i (range n)]) (apply (D i f) xs))])
     (apply list& Di)))
@@ -219,7 +223,7 @@ to record it anywhere globally.
 (define (upd-adj adj-table k t)
   (hash-list-append adj-table k (list (top-id t))))
 
-(define ((D_r i f) . xs)
+(define ((D/r i f) . xs)
   (let* ([indep-ids (map top-id xs)]
          [result    (apply f xs)] ;; i'th element of result list
          [seed      (top-id result)]
@@ -249,11 +253,6 @@ to record it anywhere globally.
             [(list 'constant c)
                {values tr*
                        adjoint-map
-                       adjoints*}]
-
-            [(list 'app 'identity x)
-               {values tr*
-                       (upd-adj adjoint-map x tr*)
                        adjoints*}]
 
             [(list 'app '+ x y)
