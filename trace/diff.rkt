@@ -144,6 +144,8 @@ jumps/calls, and is Turing complete.
      (match (expr assgn)
        [(list 'constant c)    (datum . 0.0)]
        [(list 'app 'cons x y) (cons& (D x) (D y))]
+       [(list 'app 'car ls)   (car& (D ls))]
+       [(list 'app 'cdr ls)   (cdr& (D ls))]
        [(list 'app op xs ...) (let ([xs& (map I xs)])
                                 (for/fold ([acc (datum . 0.0)])
                                           ([i (in-range (length xs))]
@@ -179,7 +181,7 @@ jumps/calls, and is Turing complete.
 ;; grad : (trace? ... -> trace?) -> (Listof trace?) -> trace?
 (define ((grad/f f) . xs)
   (let* ([n (length xs)]
-         [Di (for/list ([i (range n)]) (apply (D i f) xs))])
+         [Di (for/list ([i (range n)]) (apply (D/f i f) xs))])
     (apply list& Di)))
 
 ;; ----------------------------------------
