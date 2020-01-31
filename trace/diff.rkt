@@ -8,6 +8,38 @@
          "trace-core.rkt"
          "cons-arithmetic.rkt")
 
+(module+ test
+  (require rackunit))
+
+;; the i'th partial derivative of f at xs
+;; pderiv : integer? symbol? . (Listof trace?) -> trace?
+(define (pderiv i op . xs)
+  (define (err) (raise-arguments-error
+                 'pderiv
+                 "can't take requested partial derivative"
+                 "i" i
+                 "op" op))
+  (case op
+    [(identity) (case i
+                  [(0)   (datum . 1.0)]
+                  [else  (err)]
+                  )]
+    [(+)        (case i
+                  [(0 1) (datum . 1.0)]
+                  [else  (err)])]
+    [(*)        (case i
+                  [(0)   (cadr xs)]
+                  [(1)   (car  xs)]
+                  [else  (err)])]
+    [(exp)      (case i
+                  [(0)   (exp& (car xs))]
+                  [else  (err)])]))
+
+(module+ test
+  (test-case "pderiv"
+    (check-true (top-val (=& (pderiv 0 '* (datum . 1) (datum . 2))
+                             (datum . 2))))))
+
 #|
 
 have lines like
