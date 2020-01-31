@@ -222,8 +222,37 @@ to record it anywhere globally.
 
 |#
 
-(define (upd-adj adj-table k t)
-  (hash-list-append adj-table k (list (top-id t))))
+(define (upd-adj adj-table keys-and-traces)
+  (for/fold ([adj-table* adj-table])
+            ([kt (map chunk2 keys-and-traces)])
+    (hash-list-append adj-table* (car kt) (list (top-id (cdr kt))))))
+
+
+
+;; compute Adj[(id assgn)]
+;; returns:
+;;   - additional trace items needed to compute the adjoint 
+;;   - an updated map of terms comprising adjoints
+;;
+;;
+;; adjoint/r : assignment? symbol? trace? (HashTable symbol? (Listof symbol?))
+;;             (HashTable symbol? symbol?)
+;;           -> (Values trace? (HashTable symbol? (Listof symbol?)))
+(define (adjoint/r assgn var tr adjoint-terms adjoint-map)
+  (cond
+    [(eq? (id assgn) var) (datum . 1.0)] ;; is this needed?
+    [else
+     (match (expr assgn)
+       [(list 'constant c)    {values tr adjoint-terms}]
+       ;[(list 'app 'cons x y) {values ? (upd-adj (upd-adj ))}]
+       ;[(list 'app 'cdr ls)   {values ? ?}]
+       ;; [(list 'app op xs ...) 
+       ;;  {values
+         
+       ;;   }]
+    
+    
+    )]))
 
 (define ((D/r i f) . xs)
   (let* ([indep-ids (map top-id xs)]
@@ -231,12 +260,12 @@ to record it anywhere globally.
          [seed      (top-id result)]
          [result*   (trace-add result (make-assignment #:val 1.0))])
 
-    (define-values (D_j _ adjoints)
+    (define-values (D_j _ adjoint-map)
       (for/fold ([tr result*]
                  ;; terms (Listof ids) contributing to the adjoint of the key
-                 [adjoint-map (hash seed (list (top-id result*)))]
+                 [adjoint-terms (hash seed (list (top-id result*)))]
                  ;; the adjoints of each id seen
-                 [adjoints (hash)])
+                 [adjoint-map (hash)])
                 ([a (trace-items result)])
         
         ;; helper: get the current trace of x
@@ -245,39 +274,39 @@ to record it anywhere globally.
         ;; firstly, calculate the adjoint of the current term, a, and
         ;; put this at the head of the trace tr, as tr*.
         (let* (;; list of traces of the terms that sum to Adj (id a)
-               [adj-terms (map I (hash-ref adjoint-map (id a)))]
+               [adj-terms (map I (hash-ref adjoint-terms (id a)))]
                ;; the trace of adj-a (summed) - adj-terms can't be empty
                [tr* (trace-append
                      (foldl +& (car adj-terms) (cdr adj-terms)) tr)]
-               [adjoints* (hash-set adjoints (id a) (top-id tr*))])
+               [adjoint-map* (hash-set adjoint-map (id a) (top-id tr*))])
 
           (match (expr a)
             [(list 'constant c)
                {values tr*
-                       adjoint-map
-                       adjoints*}]
+                       adjoint-terms
+                       adjoint-map*}]
 
             [(list 'app '+ x y)
              {values tr*
-                     (upd-adj (upd-adj adjoint-map x tr*) y tr*)
-                     adjoints*}]
+                     (upd-adj (upd-adj adjoint-terms x tr*) y tr*)
+                     adjoint-map*}]
 
             [(list 'app '* x y) 
              (let ([Ax (*& (I y) tr*)]
                    [Ay (*& (I x) tr*)])
                {values (trace-append Ay Ax)
-                       (upd-adj (upd-adj adjoint-map x Ax) y Ay)
-                       adjoints*})]
+                       (upd-adj (upd-adj adjoint-terms x Ax) y Ay)
+                       adjoint-map*})]
 
             [(list 'app 'exp x) 
              (let ([Ax (*& (exp& (I x)) tr*)])
                {values Ax
-                       (upd-adj adjoint-map x Ax)
-                       adjoints*})]))))
+                       (upd-adj adjoint-terms x Ax)
+                       adjoint-map*})]))))
 
-    (map (λ (k) (hash-ref adjoints k 0.0)) indep-ids)
+    (map (λ (k) (hash-ref adjoint-map k 0.0)) indep-ids)
 
     (let* ([D_j* (trace-add D_j (make-assignment #:val 0.0))]
            [zero_id (top-id D_j*)])
       (apply list& (for/list ([k indep-ids])
-                     (trace-get (hash-ref adjoints k zero_id) D_j*))))))
+                     (trace-get (hash-ref adjoint-map k zero_id) D_j*))))))
