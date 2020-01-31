@@ -1,14 +1,24 @@
 #lang racket
 
 (provide flip
+         chunk
+         chunk2
          next-name
          remove-duplicates-before
          hash-list-append
          (for-syntax syntax-reverse))
 
 (require racket/syntax)
+(module+ test
+  (require rackunit))
 
 (define ((flip f) a b) (f b a))
+
+(define (chunk n xs) (for/list ([x (in-slice n xs)]) x))
+(define chunk2 (curry chunk 2))
+(module+ test
+  (check-equal? (chunk 2 '(1 2 3 4 5 6)) '((1 2) (3 4) (5 6)))
+  (check-equal? (chunk 3 '(1 2 3 4 5)) '((1 2 3) (4 5))))
 
 (define-syntax-rule (post-inc! x)
   (begin0
@@ -38,7 +48,6 @@
   (reverse (remove-duplicates (reverse xs) #:key key)))
 
 (module+ test
-  (require rackunit)
   (check-equal? (remove-duplicates-before (list 1 2 1 3))
                 (list 2 1 3)))
 
