@@ -222,12 +222,22 @@ to record it anywhere globally.
 
 |#
 
-(define (upd-adj adj-table keys-and-traces)
+(define (upd-adj adj-table #:key [key-fn top-id] . keys-and-traces)
   (for/fold ([adj-table* adj-table])
-            ([kt (map chunk2 keys-and-traces)])
-    (hash-list-append adj-table* (car kt) (list (top-id (cdr kt))))))
+            ([kt (chunk2 keys-and-traces)])
+    (let ([k (car kt)] [t (cadr kt)])
+      (hash-list-append adj-table* k (list (key-fn t))))))
 
-
+(module+ test
+  (test-case "Adjoint term update helper"
+    (define adj-table (hash 'a (list 1 2 3) 'b (list 4)))
+    (check-equal? (upd-adj adj-table #:key identity 'c 5)
+                  (hash 'a (list 1 2 3) 'b (list 4) 'c (list 5)))
+    (check-equal? (upd-adj adj-table #:key identity 'c 5 'b 1 'd 6 'c 7)
+                  (hash 'a (list 1 2 3)
+                        'b (list 1 4)
+                        'c (list 7 5)
+                        'd (list 6)))))
 
 ;; compute Adj[(id assgn)]
 ;; returns:
