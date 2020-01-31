@@ -33,7 +33,6 @@
 (define (expr? e)
   (match e
     [(list 'constant _) #t]
-    [(list 'ref (? symbol? _)) #t]
     [(list 'app (? symbol? _) ..1) #t]
     [_ #f]))
 
@@ -41,12 +40,9 @@
   (test-case "valid expressions"
     [check-true  (expr? '(app + a b c))]
     [check-true  (expr? '(constant '(1 2 3)))]
-    [check-true  (expr? '(ref a))]
     [check-false (expr? '(app + 1 2 3))]
     [check-false (expr? '(constant 1 2 3))]
     [check-false (expr? '(app))]
-    [check-false (expr? '(ref 1))]
-    [check-false (expr? '(ref a b))]
     [check-false (expr? '(wrong))]
     [check-false (expr? 'wrong)]
     [check-false (expr? 1)]))
@@ -144,7 +140,6 @@
 (define (trace-prune t)
   (define (rec t seen)
     (match (top-expr t)
-      [(list 'ref x)        (rec (trace-get x t) (set-add seen x))]
       [(list 'app f xs ...) (apply set-union
                                    (map (λ (x) (rec (trace-get x t)
                                                     (set-add seen x)))

@@ -136,13 +136,13 @@ jumps/calls, and is Turing complete.
     [(memq (id assgn) indep-ids) (datum . 0.0)]
     [else
      (match (expr assgn)
-       [(list 'constant c)    (datum . 0.0)]
-       [(list 'ref x)         (D x)]
-       [(list 'app '+ x y)    (+& (D x) (D y))]
-       [(list 'app '- x y)    (-& (D x) (D y))]
-       [(list 'app '* x y)    (+& (*& (D x) (I y)) (*& (I x) (D y)))]
-       [(list 'app 'exp x)    (*& (D x) (exp& (I x)))]
-       [(list 'app 'cons x y) (cons& (D x) (D y))]
+       [(list 'constant c)      (datum . 0.0)]
+       [(list 'app 'identity x) (D x)]
+       [(list 'app '+ x y)      (+& (D x) (D y))]
+       [(list 'app '- x y)      (-& (D x) (D y))]
+       [(list 'app '* x y)      (+& (*& (D x) (I y)) (*& (I x) (D y)))]
+       [(list 'app 'exp x)      (*& (D x) (exp& (I x)))]
+       [(list 'app 'cons x y)   (cons& (D x) (D y))]
        ;; add more cases here
        ;; ...
        )]))
@@ -251,7 +251,7 @@ to record it anywhere globally.
                        adjoint-map
                        adjoints*}]
 
-            [(list 'ref x)
+            [(list 'app 'identity x)
                {values tr*
                        (upd-adj adjoint-map x tr*)
                        adjoints*}]
