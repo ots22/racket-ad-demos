@@ -2,7 +2,7 @@
 
 (provide (rename-out (D/f& D/f))
          grad/f
-         (rename-out (D/r& D/r)))
+         D/r)
 
 (require "util.rkt"
          "trace.rkt"
@@ -17,7 +17,7 @@
 (define (pderiv i op . xs)
   (define (err) (raise-arguments-error
                  'pderiv
-                 "can't take requested partial derivative"
+                 "Can't take the requested partial derivative"
                  "i" i
                  "op" op))
   (case op
@@ -145,6 +145,7 @@ jumps/calls, and is Turing complete.
     [(memq (id assgn) indep-ids) (datum . 0.0)]
     [else
      (match (expr assgn)
+       [(list 'constant '())  (datum . ())]
        [(list 'constant c)    (datum . 0.0)]
        [(list 'app 'cons x y) (cons& (D x) (D y))]
        [(list 'app 'car ls)   (car& (D ls))]
@@ -254,68 +255,78 @@ to record it anywhere globally.
 ;; adjoint/r : assignment? symbol? trace? (HashTable symbol? (Listof symbol?))
 ;;             (HashTable symbol? symbol?)
 ;;           -> (Values trace? (HashTable symbol? (Listof symbol?)))
-(define (adjoint-trace+terms assgn curr-adj-tr adjoint-terms)
-  (define (I x) (trace-get x curr-adj-tr))
-  (match (expr assgn)
-    [(list 'constant c)    {values curr-adj-tr adjoint-terms}]
-    ;;[(list 'app 'cons x y) {values ? (upd-adj ))}]
-    ;[(list 'app 'cdr ls)   {values ? ?}]
+(define (adjoint-trace+terms w Aw adjoint-terms)
+  (match (expr w)
+    [(list 'constant c) {values Aw adjoint-terms}]
+
+    [(list 'app 'cons x y)
+     (let ([Ax (car& Aw)]
+           [Ay (cdr& Aw)])
+       {values (trace-append Ay Ax Aw)
+               (upd-adj adjoint-terms x Ax y Ay)})]
+
+    [(list 'app c_r xs) #:when (or (eq? c_r 'car) (eq? c_r 'cdr))
+     (let* ([xs& (trace-get xs Aw)]
+            [tr  (case c_r
+                   [(car) (cons& Aw (cons-zero (cdr& xs&)))]
+                   [(cdr) (cons& (cons-zero (car& xs&)) Aw)])])
+       {values (trace-append tr Aw)
+               (upd-adj adjoint-terms xs tr)})]
+
     [(list 'app op xs ...)
-     (let ([xs& (map I xs)])
-       (for/fold ([tr* curr-adj-tr]
-                  [adjoint-terms* adjoint-terms])
+     (let ([xs& (for/list ([x xs]) (trace-get x Aw))])
+       (for/fold ([tr Aw]
+                  [adjoint-terms adjoint-terms])
                  ([x xs]
                   [i (in-naturals)])
-         (let ([Ax (*& curr-adj-tr (apply pderiv i op xs&))])
-           {values
-            (trace-append Ax tr*)
-            (upd-adj adjoint-terms* #:key top-id x Ax)})))]))
+         (let ([Ax (*& Aw (apply pderiv i op xs&))])
+           {values (trace-append Ax tr)
+                   (upd-adj adjoint-terms x Ax)})))]
+    ))
 
-(define ((D/r j f) . xs)
-  (let* ([indep-ids (map top-id xs)]
-         [result-tr (apply f xs)]
+;; s is the initial seed, which must have the same shape as the result
+(define ((D/r s f) . xs)
+  (define indep-ids (map top-id xs))
+  (define result-tr (apply f xs))
 
-         ;; TODO: if result is a cons, seed both sides separately
+  (define seed-id (top-id result-tr))
+  (define seed-tr (trace-append s result-tr))
 
-         [seed-id   (top-id result-tr)]
-         [seed-tr   (trace-add result-tr (make-assignment #:val 1.0))])
+  (define-values (tr _adjoint-terms adjoints)
+    (for/fold (;; tr holds the current trace
+               [tr seed-tr]
+               ;; terms (Listof ids) contributing to the adjoint of the key
+               [adjoint-terms (hash seed-id (list (top-id seed-tr)))]
+               ;; the adjoints of each id seen
+               [adjoints (hash)])
 
-    (define-values (tr _adjoint-terms adjoints)
-      (for/fold (;; tr holds the current trace
-                 [tr seed-tr]
-                 ;; terms (Listof ids) contributing to the adjoint of the key
-                 [adjoint-terms (hash seed-id (list (top-id seed-tr)))]
-                 ;; the adjoints of each id seen
-                 [adjoints (hash)])
+              ;; iterate through each assignment, last to first
+              ([w (trace-items result-tr)])
 
-                ;; iterate through each assignment, last to first
-                ([w (trace-items result-tr)])
+      ;; Firstly, calculate the adjoint of the current assignment, w, and
+      ;; put this at the head of the current trace, as Aw.
+      (let*-values
+          (;; list of traces of the terms that sum to Adj (id w)
+           [(Aw-terms) (for/list ([k (hash-ref adjoint-terms (id w))])
+                         (trace-get k tr))]
 
-        ;; Firstly, calculate the adjoint of the current assignment, w, and
-        ;; put this at the head of the current trace, as Aw.
-        (let*-values
-            (;; list of traces of the terms that sum to Adj (id w)
-             [(Aw-terms) (for/list ([k (hash-ref adjoint-terms (id w))])
-                           (trace-get k tr))]
+           ;; adj-terms can't be empty
+           [(Aw) (trace-append
+                  (foldl cons-add (car Aw-terms) (cdr Aw-terms))
+                  tr)]
 
-             ;; adj-terms can't be empty
-             [(Aw) (trace-append (foldl +& (car Aw-terms) (cdr Aw-terms))
-                                 tr)]
+           [(adjoints*) (hash-set adjoints (id w) (top-id Aw))]
 
-             [(adjoints*) (hash-set adjoints (id w) (top-id Aw))]
+           ;; returns an updated trace, with the terms needed to
+           ;; compute the adjoints of the variables in the rhs of the
+           ;; assignment w, along with a map
+           [(tr* adjoint-terms*) (adjoint-trace+terms w Aw adjoint-terms)])
 
-             ;; returns an updated trace, with the terms needed to
-             ;; compute the adjoints of the variables in the rhs of the
-             ;; assignment w, along with a map
-             [(tr* adjoint-terms*) (adjoint-trace+terms w Aw adjoint-terms)])
+        {values tr*
+                adjoint-terms*
+                adjoints*})))
 
-          {values tr*
-                  adjoint-terms*
-                  adjoints*})))
-
-    (let* ([tr* (trace-add tr (make-assignment #:val 0.0))]
-           [zero-id (top-id tr*)])
-      (apply list& (for/list ([x indep-ids])
-                     (trace-get (hash-ref adjoints x zero-id) tr*))))))
-
-(define (D/r& i f) (D/r (top-val i) f))
+  (let* ([tr* (trace-add tr (make-assignment #:val 0.0))]
+         [zero-id (top-id tr*)])
+    (apply list& (for/list ([x indep-ids])
+                   (trace-get (hash-ref adjoints x zero-id) tr*)))))
