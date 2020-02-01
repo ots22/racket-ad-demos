@@ -2,7 +2,7 @@
 
 (provide (rename-out (D/f& D/f))
          grad/f
-         D/r)
+         grad/r)
 
 (require "util.rkt"
          "trace.rkt"
@@ -285,10 +285,8 @@ to record it anywhere globally.
     ))
 
 ;; s is the initial seed, which must have the same shape as the result
-(define ((D/r s f) . xs)
-  (define indep-ids (map top-id xs))
-  (define result-tr (apply f xs))
-
+;;
+(define (D/r result-tr indep-ids s)
   (define seed-id (top-id result-tr))
   (define seed-tr (trace-append s result-tr))
 
@@ -332,3 +330,34 @@ to record it anywhere globally.
      (apply list&
             (for/list ([x indep-ids])
               (trace-get (hash-ref adjoints x zero-id) tr*))))))
+
+
+(define (datum->trace x) (make-trace (make-assignment #:val x)))
+
+(define (cons->trace x)
+  (cond
+    [(null? x)  null&]
+    [(pair? x)  (cons& (cons->trace (car x))
+                       (cons->trace (cdr x)))]
+    [(trace? x) x]
+    [else       (datum->trace x)]))
+
+
+(define ((grad/r f) . xs)
+  (let* ([indep-ids (map top-id xs)]
+         [result-tr (apply f xs)]
+         [result (top-val result-tr)]
+         [result-flat (flatten result)]
+         [n (length result-flat)])
+    ;; flatten the result, seed each element in turn, reshape back to
+    ;; have the same shape as the result, then call D/r.  Accumulate
+    ;; into a list, then reshape back to have the shape of result.
+    ;; Finally, convert cons of traces to trace of conses
+    (cons->trace
+     (reshape result
+              (for/list ([i (in-range n)])
+                (let ([s (cons->trace
+                          (reshape result
+                                   (map exact->inexact
+                                        (ind-list n i))))])
+                  (D/r result-tr indep-ids s)))))))
