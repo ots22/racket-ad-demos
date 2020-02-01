@@ -173,7 +173,7 @@ jumps/calls, and is Turing complete.
           {values
            (trace-append Da tr)
            (hash-set deriv-map (id a) (top-id Da))})))
-    (trace-prune (trace-remove-duplicates Dresult))))
+    (trace-prune Dresult)))
 
 ;; The operator D/f, for providing to the tracing lang
 ;;
@@ -328,5 +328,7 @@ to record it anywhere globally.
 
   (let* ([tr* (trace-add tr (make-assignment #:val 0.0))]
          [zero-id (top-id tr*)])
-    (apply list& (for/list ([x indep-ids])
-                   (trace-get (hash-ref adjoints x zero-id) tr*)))))
+    (trace-prune
+     (apply list&
+            (for/list ([x indep-ids])
+              (trace-get (hash-ref adjoints x zero-id) tr*))))))

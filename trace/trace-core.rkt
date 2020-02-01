@@ -44,17 +44,13 @@
                                  #'([args arg-vals]
                                     ... [rest-args rest-arg-vals]))]
                     [(rev-args ...) (syntax-reverse #'(args ... ))]
-                    [arg-traces-pat #'(append (trace-items rev-args) ...)]
+                    [arg-traces-pat #'(trace-append rev-args ...)]
                     [all-arg-traces-pat
                      (if (null? (syntax->datum #'rest-args))
-                         #'(apply make-trace
-                                  (remove-duplicates-before arg-traces-pat))
-                         #'(apply make-trace
-                                  (remove-duplicates-before
-                                   (append
-                                    (apply append (map trace-items
-                                                       (reverse rest-args)))
-                                    arg-traces-pat))))]
+                         #'arg-traces-pat
+                         #'(trace-append
+                            (apply trace-append (reverse rest-args))
+                            arg-traces-pat))]
                     [f-val #'f])
        #'(define (f args ... . rest-args)
            (let (;; shadow the actual args (which have trace annotations)
@@ -89,8 +85,7 @@
                   rest-arg-let-binding ...
                   [result-trace (let () body ...)])
              (trace-prune
-              (trace-remove-duplicates
-               (trace-append result-trace arg-traces))))))]))
+              (trace-append result-trace arg-traces)))))]))
 
 ;; Provided define form
 (define-syntax (define& stx)
