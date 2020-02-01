@@ -31,11 +31,11 @@
 
   (define (gcar x y)
     (car (cons (* y 2) (* x 3))))
-  (define Dgcar_1_1 ((grad/f g) 1.0 1.0))
+  (define Dgcar_1_1 ((grad/f gcar) 1.0 1.0))
 
   (define (gcdr x y)
     (cdr (cons (* y 2) (* x 3))))
-  (define Dgcdr_1_1 ((grad/f g) 1.0 1.0))
+  (define Dgcdr_1_1 ((grad/f gcdr) 1.0 1.0))
 
 
   ;;
@@ -53,4 +53,4 @@
   (check-equal? (top-val Dpow_2_5) 80.0)
   (check-equal? (top-val Df_2_1) '(1.0 2.0))
   (check-equal? (top-val Dgcar_1_1) '(0.0 2.0))
-  (check-equal? (top-val Dgcar_1_1) '(3.0 0.0)))
+  (check-equal? (top-val Dgcdr_1_1) '(3.0 0.0)))
