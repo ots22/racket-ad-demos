@@ -1,6 +1,8 @@
 #lang racket
 
-(provide flip
+(provide reshape
+         ind-list
+         flip
          chunk
          chunk2
          next-name
@@ -11,6 +13,52 @@
 (require racket/syntax)
 (module+ test
   (require rackunit))
+
+(define (reshape shape data)
+  (define-values (result _)
+    (let loop ([shape shape]
+               [data data])
+      (cond
+        [(and (null? data) (not (null? shape)))
+         (raise-user-error 'reshape "out of data when reshaping")]
+
+        [(pair? shape)
+         (let*-values ([(left data*) (loop (car shape) data)]
+                       [(right data**) (loop (cdr shape) data*)])
+           {values (cons left right) data**})]
+
+        [(null? shape) {values null data}]
+
+        [else          {values (car data) (cdr data)}])))
+  result)
+
+(module+ test
+  (check-equal? (reshape '() '()) '())
+
+  (check-equal? (reshape '((1 (2) . 3) . 4) '(a b c d))
+                '((a (b) . c) . d))
+
+  (check-equal? (reshape '(((a))) '(1 2))
+                '(((1))))
+
+  (check-equal? (reshape 'a '(1 2))
+                1)
+
+  (check-exn exn:fail? (λ () (reshape '(1) '()))))
+
+
+(define (ind-list n i)
+  (if (or (< i 0) (>= i n))
+      (raise-arguments-error 'ind-list
+                             "i must be positive and less than n"
+                             "i" i
+                             "n" n)
+      (build-list n (λ (j) (if (= i j) 1 0)))))
+
+(module+ test
+  (check-equal? (ind-list 5 3) '(0 0 0 1 0))
+  (check-exn exn:fail? (λ () (ind-list 5 6))))
+
 
 (define ((flip f) a b) (f b a))
 
@@ -57,7 +105,7 @@
 ;;
 ;; hash-list-append : (Hashof any/c list?) any/c list? -> (Hashof any/c list?)
 (define (hash-list-append ht k vs)
-  (hash-update ht k 
+  (hash-update ht k
                (λ (current-vs) (append vs current-vs))
                (λ () (list))))
 
