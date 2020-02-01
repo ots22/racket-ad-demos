@@ -25,17 +25,17 @@
   ;;
 
   (define (f x y) (+ x (* y y)))
-  (define Df_2_1 ((grad/f f) 2.0 1.0))
+  (define Df_2_1 ((J/f f) 2.0 1.0))
 
   ;;
 
   (define (gcar x y)
     (car (cons (* y 2) (* x 3))))
-  (define Dgcar_1_1 ((grad/f gcar) 1.0 1.0))
+  (define Dgcar_1_1 ((J/f gcar) 1.0 1.0))
 
   (define (gcdr x y)
     (cdr (cons (* y 2) (* x 3))))
-  (define Dgcdr_1_1 ((grad/f gcdr) 1.0 1.0))
+  (define Dgcdr_1_1 ((J/f gcdr) 1.0 1.0))
 
 
   ;;

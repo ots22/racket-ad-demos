@@ -1,8 +1,8 @@
 #lang racket
 
 (provide (rename-out (D/f& D/f))
-         grad/f
-         grad/r)
+         J/f
+         J/r)
 
 (require "util.rkt"
          "trace.rkt"
@@ -180,10 +180,10 @@ jumps/calls, and is Turing complete.
 ;; D& : trace? (trace? ... -> trace?) -> trace? ... -> trace?
 (define (D/f& i f) (D/f (top-val i) f))
 
-;; The gradient of f at xs, computed by forward accumulation
+;; The Jacobian of f at xs, computed by forward accumulation
 ;;
-;; grad : (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define ((grad/f f) . xs)
+;; J/f : (trace? ... -> trace?) -> (Listof trace?) -> trace?
+(define ((J/f f) . xs)
   (let* ([n (length xs)]
          [Di (for/list ([i (range n)]) (apply (D/f i f) xs))])
     (apply list& Di)))
@@ -284,8 +284,18 @@ to record it anywhere globally.
                    (upd-adj adjoint-terms x Ax)})))]
     ))
 
-;; s is the initial seed, which must have the same shape as the result
+;; A helper for J/r. It is not provided by the module. It has a
+;; different interface to D/f.
 ;;
+;; result-tr : the trace of the result
+;; indep-ids : the variables with respect to which we are
+;;             differentiating (symbols)
+;;         s : the initial seed, which must be a trace of a pair with
+;;             the same shape as the result.  This should almost
+;;             certainly have a '1' in one position, and zeros
+;;             elsewhere.
+;;
+;; D/r : trace? (Listof symbol?) trace? -> trace?
 (define (D/r result-tr indep-ids s)
   (define seed-id (top-id result-tr))
   (define seed-tr (trace-append s result-tr))
@@ -343,7 +353,11 @@ to record it anywhere globally.
     [else       (datum->trace x)]))
 
 
-(define ((grad/r f) . xs)
+;; The Jacobian of f at xs, computed by reverse accumulation
+;;
+;;
+;; J/r : (trace? ... -> trace?) -> (Listof trace?) -> trace?
+(define ((J/r f) . xs)
   (let* ([indep-ids (map top-id xs)]
          [result-tr (apply f xs)]
          [result (top-val result-tr)]
