@@ -98,7 +98,7 @@
 ;;
 ;; trace-append : trace? ... -> trace?
 (define (trace-append . ts)
-  (trace (apply append (map trace-items ts))))
+  (trace-remove-duplicates (trace (apply append (map trace-items ts)))))
 
 (module+ test
   (trace-append (make-trace (make-assignment #:val 1))
@@ -106,11 +106,14 @@
   (apply trace-append (list (make-trace (make-assignment #:val 1))
                             (make-trace (make-assignment #:val 2)))))
 
-;; Remove duplicate items from trace
+;; Remove duplicate items from trace.  Will not remove the head item,
+;; even if it is a duplicate.
 ;;
 ;; trace-remove-duplicates : trace? -> trace?
 (define (trace-remove-duplicates t)
-  (trace (remove-duplicates-before (trace-items t) #:key assignment-id)))
+  (define head (top t))
+  (trace (cons head (remove-duplicates-before
+                     (cdr (trace-items t)) #:key assignment-id))))
 
 (module+ test
   (define a (make-assignment #:id 'a #:val 0))
