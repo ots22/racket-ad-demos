@@ -18,6 +18,7 @@
          trace-prune
          trace-display
          
+         top
          top-id
          top-expr
          top-val
