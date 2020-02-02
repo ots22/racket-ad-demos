@@ -1,6 +1,7 @@
 #lang racket
 
 (provide (rename-out (D/f& D/f))
+         D/r
          J/f
          J/r)
 
