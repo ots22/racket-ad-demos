@@ -15,6 +15,7 @@
          trace-add
          trace-append
          trace-remove-duplicates
+         trace-filter-out
          trace-prune
          trace-display
          
@@ -127,6 +128,12 @@
 
   (check-equal? (trace-remove-duplicates tr)
                 expected))
+
+;; trace-filter-out : (Listof symbol?) trace? -> trace?
+(define (trace-filter-out ids t)
+  (trace (remove* ids (trace-items t)
+                  (λ (s assgn) (eq? s (id assgn))))))
+
 
 ;; The head assignment in trace t
 ;;
