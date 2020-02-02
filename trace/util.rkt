@@ -73,13 +73,7 @@
       x
     (set! x (+ x 1))))
 
-(define (make-name base n)
-  (format-symbol "%~a~a" base n))
-
-(define (name-generator name [name-counter 0])
-  (lambda () (make-name name (post-inc! name-counter))))
-
-(define next-name (name-generator ""))
+(define (next-name) (syntax->datum (generate-temporary "%")))
 
 ;; syntax-reverse : syntax? -> syntax?
 ;;
