@@ -14,6 +14,7 @@
   (require rackunit))
 
 ;; the i'th partial derivative of f at xs
+;;
 ;; pderiv : integer? symbol? . (Listof trace?) -> trace?
 (define (pderiv i op . xs)
   (define (err) (raise-arguments-error
@@ -36,7 +37,9 @@
     [(exp)      (case i
                   [(0)   (exp& (car xs))]
                   [else  (err)])]
-
+    [(identity) (case i
+                  [(0)   (datum . 1.0)]
+                  [else  (err)])]
     ;; add more cases here...
 
     [else (err)]
