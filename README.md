@@ -1,2 +1,2 @@
-# rackpropagator-talk
+# rackpropagator
 Exploring Automatic Differentiation in Racket
