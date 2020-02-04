@@ -103,10 +103,16 @@
   (trace-remove-duplicates (trace (apply append (map trace-items ts)))))
 
 (module+ test
-  (trace-append (make-trace (make-assignment #:val 1))
-                (make-trace (make-assignment #:val 2)))
-  (apply trace-append (list (make-trace (make-assignment #:val 1))
-                            (make-trace (make-assignment #:val 2)))))
+  (test-case "trace-append"
+    (define a
+      (trace-append (make-trace (make-assignment #:val 1))
+                    (make-trace (make-assignment #:val 2))))
+    (define b
+      (apply trace-append (list (make-trace (make-assignment #:val 1))
+                                (make-trace (make-assignment #:val 2)))))
+
+    (check-equal? (map val (trace-items a)) '(1 2))
+    (check-equal? (map val (trace-items a)) (map val (trace-items b)))))
 
 ;; Remove duplicate items from trace.  Will not remove the head item,
 ;; even if it is a duplicate.
@@ -121,10 +127,9 @@
   (define a (make-assignment #:id 'a #:val 0))
   (define b (make-assignment #:id 'b #:val 1))
   (define c (make-assignment #:id 'c #:val 2))
-  (define tr (trace (list a b a c)))
-  (define expected (make-trace b a c))
-  (trace-display expected)
-  (trace-display (trace-remove-duplicates tr))
+  (define tr (trace (list a b a a c a)))
+  ; keep the head item, even if it occurs earlier
+  (define expected (make-trace a b c a))
 
   (check-equal? (trace-remove-duplicates tr)
                 expected))
