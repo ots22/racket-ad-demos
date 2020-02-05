@@ -1,4 +1,5 @@
 #lang racket
+
 (require (for-syntax racket)
          (for-syntax racket/syntax)
          (for-syntax syntax/parse)
@@ -74,7 +75,8 @@
     [(op xs ...) (list* 'app (syntax->datum #'op) (syntax->datum #'(xs ...)))]
     [c           (list 'constant (syntax->datum #'c))]))
 
-;; note identical patterns: consolidate into a single pattern
+
+;; def->assignment : syntax? -> assignment?
 (define-for-syntax (def->assignment stx)
   (syntax-parse stx #:datum-literals (define)
     [(define var e) (make-assignment

@@ -1,8 +1,6 @@
 #lang racket
 
-(require "forward.rkt")
-
-
+(require "main.rkt")
 
 ;; ((D1 (D0 (λ (x y) (+ x (* x y))))) 1 2)
 
