@@ -24,3 +24,6 @@
 ;;   (define b 1)
 ;;   (define y (g b a h)))
 
+(define (i x y)
+  (define z (* x y))
+  (* z z))
