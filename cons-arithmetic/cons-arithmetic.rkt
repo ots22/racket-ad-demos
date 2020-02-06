@@ -1,4 +1,9 @@
 #lang racket
+
+(provide cons-conforming?
+         cons-zero
+         cons-add)
+
 (module+ test
   (require rackunit))
 
