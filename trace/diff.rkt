@@ -241,17 +241,20 @@ to record it anywhere globally.
                         'c (list 7 5)
                         'd (list 6)))))
 
-;; compute Adj[(id assgn)]
+;; adjoint-trace+terms
 ;;
-;; tr: the trace of the adjoint of the current term
+;; w: the current term (an assignment)
+;;
+;; Aw: the trace of the adjoint of the current term
+;;
+;; adjoint-terms: a map from a symbol s to the symbol representing Adj(s)
 ;;
 ;; returns:
-;;   - additional trace items needed to compute the adjoint
-;;   - an updated map of terms comprising adjoints
+;;   - additional trace items needed to compute (other) adjoints
+;;   - an updated map of terms comprising these adjoints
 ;;
-;;
-;; adjoint/r : assignment? symbol? trace? (HashTable symbol? (Listof symbol?))
-;;             (HashTable symbol? symbol?)
+;; adjoint-trace+terms :
+;;   assignment? (HashTable symbol? (Listof symbol?))
 ;;           -> (Values trace? (HashTable symbol? (Listof symbol?)))
 (define (adjoint-trace+terms w Aw adjoint-terms)
   (match (expr w)
