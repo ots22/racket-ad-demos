@@ -40,16 +40,25 @@
 (define-for-syntax (last-id dfn-forms)
   (dfn-id (last dfn-forms)))
 
+(define-for-syntax (dfn-remove-duplicates dfn-forms)
+  (with-syntax ([tmp (generate-temporary)]
+                [id (last-id dfn-forms)])
+    (let ([rm (remove-duplicates dfn-forms)])
+      (if (equal? (last-id rm) #'id)
+          rm
+          (append rm (list #'(define tmp id)))))))
+
 (define-for-syntax (dfn-build op . dfn-lists)
   (with-syntax ([(arg-ids ...) (map last-id dfn-lists)]
                 [fresh-id (generate-temporary)]
                 [op op])
-    (remove-duplicates
+    (dfn-remove-duplicates
      (append (apply append dfn-lists)
              (list #'(define fresh-id (op arg-ids ...)))))))
 
 (define-for-syntax (dfn-get id dfn-forms)
-  (member id dfn-forms (λ (u v) (free-identifier=? u (dfn-id v)))))
+  (reverse (member id (reverse dfn-forms)
+                   (λ (u v) (free-identifier=? u (dfn-id v))))))
 
 (module+ test
   (define-syntax (s stx)
@@ -62,18 +71,64 @@
   (check-equal? s '(1 2)))
 
 
-(module+ test
-  (define table (make-immutable-free-id-table))
-  (check-equal? (dict-ref (dict-set table #'x 1) #'y 0)
-                0)
+;; (module+ test
+;;   (define table (make-immutable-free-id-table))
+;;   (check-equal? (dict-ref (dict-set table #'x 1) #'y 0)
+;;                 0)
 
-  (dict-ref
-   (dict-update
-    table #'y
-    (λ (current-vs) (append '(1) current-vs))
-    (λ () (list)))
-   #'y)
-  )
+;;   (dict-ref
+;;    (dict-update
+;;     table #'y
+;;     (λ (current-vs) (append '(1) current-vs))
+;;     (λ () (list)))
+;;    #'y)
+;;   )
+
+;; (define-for-syntax *backprop* (make-parameter (make-immutable-free-id-table)))
+
+;; (define-for-syntax (backprop-set! op <-op)
+;;   (*backprop* (dict-set (*backprop*) op <-op)))
+
+;; (begin-for-syntax
+;;   (backprop-set! #'+ (λ (s x-id y-id)
+;;                        (make-immutable-free-id-table
+;;                         (hash x-id s
+;;                               y-id s)))))
+
+;; (define-for-syntax (backprop op s . xs)
+;;   (apply (dict-ref (*backprop*) op) s xs))
+
+(define-for-syntax (backprop op s . xs)
+  (println xs)
+  (with-syntax ([s* (last-id s)])
+    (let ([xs* (map last-id xs)])
+      (syntax-case op (+ *)
+        [+ (with-syntax ([g1 (generate-temporary)]
+                         [g2 (generate-temporary)]
+                         [g3 (generate-temporary)])
+             (list #'(define g1 s*)
+                   #'(define g2 s*)
+                   #'(define g3 (cons g1 g2))))]
+        
+        [* (with-syntax ([g1 (generate-temporary)]
+                         [g2 (generate-temporary)]
+                         [g3 (generate-temporary)]
+                         [x  (car xs*)]
+                         [y  (cadr xs*)])
+             (list #'(define g1 (* s* y))
+                   #'(define g2 (* s* x))
+                   #'(define g3 (cons g1 g2))))]
+           ))))
+         
+;; (define-syntax (s stx)
+;;   (syntax-case stx ()
+;;     [(_ a b) (*backprop* (dict-set (*backprop*) #'a (syntax->datum #'b)))])
+;;   (for ([(k v) (in-dict (*backprop*))])
+;;     (display (format "~a : ~a~%" k v)))
+;;   #''ok)
+
+;; (s + 4)
+;; (s * 4)
 
 
 ;; adjoint-trace+terms : stx? (Listof stx?) (IdTable (Listof id?))
@@ -83,7 +138,7 @@
     [(define _ (cons x y))
      (let ([Ax (dfn-build #'car Aw)]
            [Ay (dfn-build #'cdr Aw)])
-       {values (remove-duplicates (append Aw Ay Ax))
+       {values (dfn-remove-duplicates (append Aw Ay Ax))
                (upd-adj adjoint-terms #:key last-id #'x Ax #'y Ay)})]
 
     [(define _ (car xs))
@@ -91,7 +146,7 @@
             [tr  (dfn-build #'cons Aw
                    (dfn-build #'zero
                      (dfn-build #'cdr xs*)))])
-       {values (remove-duplicates (append tr Aw))
+       {values (dfn-remove-duplicates (append tr Aw))
                (upd-adj adjoint-terms #:key last-id #'xs tr)})]
 
     [(define _ (cdr xs))
@@ -99,19 +154,28 @@
             [tr  (dfn-build #'cons Aw
                    (dfn-build #'zero
                      (dfn-build #'car xs*)))])
-       {values (remove-duplicates (append tr Aw))
+       {values (dfn-remove-duplicates (append tr Aw))
                (upd-adj adjoint-terms #:key last-id #'xs tr)})]
 
-    ;; [(define _ (op xs ...))
-    ;;  (let ([xs& (for/list ([x xs]) (trace-get x Aw))])
-    ;;    (for/fold ([tr Aw]
-    ;;               [adjoint-terms adjoint-terms])
-    ;;              ([x xs]
-    ;;               [i (in-naturals)])
-    ;;      (let ([Ax (*& Aw (apply pderiv i op xs&))])
-    ;;        {values (trace-append Ax tr)
-    ;;                (upd-adj adjoint-terms x Ax)})))]
-
+    [(define _ (op xs ...))
+     (let-values
+         ([(new-dfns _ignore new-adjoint-terms)
+           (let* ([xs* (for/list ([x (syntax-e #'(xs ...))])
+                         (dfn-get x Aw))]
+                  [b (apply backprop #'op Aw xs*)]
+                  [tr (append Aw b)])
+             (for/fold ([tr* tr]
+                        [b-cdr b]
+                        [adjoint-terms* adjoint-terms])
+                       ([x (syntax-e #'(xs ...))])
+               (println x)
+               (let ([Ax (dfn-build #'car b-cdr)])
+                 {values (dfn-remove-duplicates (append tr* Ax))
+                         (dfn-build #'cdr b-cdr)
+                         (upd-adj adjoint-terms* #:key last-id x Ax)
+                         })))])
+       {values new-dfns new-adjoint-terms})]
+          
     ;; constant
     [(define _ c) {values Aw adjoint-terms}]
     ))
