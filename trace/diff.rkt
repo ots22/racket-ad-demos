@@ -230,12 +230,6 @@ to record it anywhere globally.
 
 |#
 
-(define (upd-adj adj-table #:key [key-fn top-id] . keys-and-traces)
-  (for/fold ([adj-table* adj-table])
-            ([kt (chunk2 keys-and-traces)])
-    (let ([k (car kt)] [t (cadr kt)])
-      (hash-list-append adj-table* k (list (key-fn t))))))
-
 (module+ test
   (test-case "Adjoint term update helper"
     (define adj-table (hash 'a (list 1 2 3) 'b (list 4)))
@@ -267,7 +261,7 @@ to record it anywhere globally.
      (let ([Ax (car& Aw)]
            [Ay (cdr& Aw)])
        {values (trace-append Ay Ax Aw)
-               (upd-adj adjoint-terms x Ax y Ay)})]
+               (upd-adj adjoint-terms #:key top-id x Ax y Ay)})]
 
     [(list 'app c_r xs) #:when (or (eq? c_r 'car) (eq? c_r 'cdr))
      (let* ([xs& (trace-get xs Aw)]
@@ -275,7 +269,7 @@ to record it anywhere globally.
                    [(car) (cons& Aw (cons-zero (cdr& xs&)))]
                    [(cdr) (cons& (cons-zero (car& xs&)) Aw)])])
        {values (trace-append tr Aw)
-               (upd-adj adjoint-terms xs tr)})]
+               (upd-adj adjoint-terms #:key top-id xs tr)})]
 
     [(list 'app op xs ...)
      (let ([xs& (for/list ([x xs]) (trace-get x Aw))])
@@ -285,7 +279,7 @@ to record it anywhere globally.
                   [i (in-naturals)])
          (let ([Ax (*& Aw (apply pderiv i op xs&))])
            {values (trace-append Ax tr)
-                   (upd-adj adjoint-terms x Ax)})))]
+                   (upd-adj adjoint-terms #:key top-id x Ax)})))]
     ))
 
 ;; A helper for J/r. It is not provided by the module. It has a

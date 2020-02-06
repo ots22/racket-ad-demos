@@ -7,7 +7,8 @@
          chunk2
          next-name
          remove-duplicates-before
-         hash-list-append
+         dict-list-append
+         upd-adj
          (for-syntax syntax-reverse))
 
 (require racket/syntax)
@@ -93,19 +94,25 @@
   (check-equal? (remove-duplicates-before (list 1 2 1 3))
                 (list 2 1 3)))
 
-;; Append the list of items vs to a list contained in a hash table ht
+;; Append the list of items vs to a list contained in a dictionary ht
 ;; under key k.  If the key does not exist, first create it with an
 ;; empty list as its value.
 ;;
-;; hash-list-append : (Hashof any/c list?) any/c list? -> (Hashof any/c list?)
-(define (hash-list-append ht k vs)
-  (hash-update ht k
+;; dict-list-append : (Dict any/c list?) any/c list? -> (Dict any/c list?)
+(define (dict-list-append ht k vs)
+  (dict-update ht k
                (λ (current-vs) (append vs current-vs))
                (λ () (list))))
 
 (module+ test
-  (test-case "hash-list-append"
-    (check-equal? (hash-list-append (hash 1 '(2 3)) 1 '(0 5))
+  (test-case "dict-list-append"
+    (check-equal? (dict-list-append (hash 1 '(2 3)) 1 '(0 5))
                   (hash 1 '(0 5 2 3)))
-    (check-equal? (hash-list-append (hash 1 '(2 3)) 2 '(0 5))
+    (check-equal? (dict-list-append (hash 1 '(2 3)) 2 '(0 5))
                   (hash 1 '(2 3) 2 '(0 5)))))
+
+(define (upd-adj adj-table #:key key-fn . keys-and-traces)
+  (for/fold ([adj-table* adj-table])
+            ([kt (chunk2 keys-and-traces)])
+    (let ([k (car kt)] [t (cadr kt)])
+      (dict-list-append adj-table* k (list (key-fn t))))))
