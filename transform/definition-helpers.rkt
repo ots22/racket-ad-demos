@@ -211,21 +211,9 @@
 
     ;; raw expression - this might arise from the last term in the body
     [expr (with-syntax ([tmp (generate-temporary)])
-            (adjoint-trace+terms #'(define tmp expr) Aw adjoint-terms))]
+            (adjoint-trace+terms #'(define tmp expr) Aw adjoint-terms))])
             
-    ))
-
-
-;; (define-for-syntax (display-trace+terms tr tab)
-;;   (for ([dfn tr])
-;;     (displayln (syntax->datum dfn)))
-  
-;;   (for ([(k v) (in-dict tab)])
-;;     (display (format "~a : ~a~%" (syntax->datum k) (if (pair? v)
-;;                                                        (map syntax->datum v)
-;;                                                        (syntax->datum v)))))
-;;   )
-
+    )
 
 (define-for-syntax (D/r result-tr indep-ids s)
   (define seed-id (last-id result-tr))
@@ -244,27 +232,29 @@
               ;; iterate through each assignment, last to first
               ([w (reverse result-tr)])
 
-          ;; Firstly, calculate the adjoint of the current assignment, w, and
-          ;; put this at the head of the current trace, as Aw.
-          (let*-values
-              (;; list of traces of the terms that sum to Adj (id w)
-               [(Aw-terms)
-                (for/list ([k (dict-ref adjoint-terms (dfn-id w) null)])
-                  (dfn-get k tr))]
+      ;;;; variable definition case
 
-               [(Aw) (append tr (foldl (curry dfn-build #'+) 
-                                       (car Aw-terms) (cdr Aw-terms)))]
+      ;; Firstly, calculate the adjoint of the current assignment, w, and
+      ;; put this at the head of the current trace, as Aw.
+      (let*-values
+          (;; list of traces of the terms that sum to Adj (id w)
+           [(Aw-terms)
+            (for/list ([k (dict-ref adjoint-terms (dfn-id w) null)])
+              (dfn-get k tr))]
 
-               [(adjoints*) (dict-set adjoints (dfn-id w) (last-id Aw))]
+           [(Aw) (append tr (foldl (curry dfn-build #'+) 
+                                   (car Aw-terms) (cdr Aw-terms)))]
 
-               ;; returns an updated trace, with the terms needed to
-               ;; compute the adjoints of the variables in the rhs of the
-               ;; assignment w, along with a map
-               [(tr* adjoint-terms*) (adjoint-trace+terms w Aw adjoint-terms)])
+           [(adjoints*) (dict-set adjoints (dfn-id w) (last-id Aw))]
 
-            {values (dfn-remove-duplicates tr*)
-                    adjoint-terms*
-                    adjoints*})))
+           ;; returns an updated trace, with the terms needed to
+           ;; compute the adjoints of the variables in the rhs of the
+           ;; assignment w, along with a map
+           [(tr* adjoint-terms*) (adjoint-trace+terms w Aw adjoint-terms)])
+
+        {values (dfn-remove-duplicates tr*)
+                adjoint-terms*
+                adjoints*})))
 
   ;; append the terms corresponding to the indep-ids
   (define-values (adjoints* tr*)
@@ -299,26 +289,26 @@
               (dfn-get (dict-ref adjoints* x zero-id) tr**))))
   )
 
-(define-for-syntax (handle-assignments args body)
-  ;(println args)
-  ;(println body)
+(define-for-syntax (handle-assignments s args body)
   (D/r (syntax-e body) (syntax-e args)
-       (with-syntax ([s (generate-temporary "s")])
+       (with-syntax ([s s])
          (list #'(define s 1.0)))))
 
 (define-syntax (define/d stx)
   (syntax-case stx ()
     [(_ (f args ...) Jf body ... body-final)
      (with-syntax* ([tmp (generate-temporary)]
+                    [s (generate-temporary "s")]
                     [body-final-dfn #'(define tmp body-final)]
                     [(body* ... body*-final)
-                     (handle-assignments #'(args ...)
+                     (handle-assignments #'s
+                                         #'(args ...)
                                          #'(body ... body-final-dfn))]
                     [body*-final-expr (dfn-expr #'body*-final)])
        #'(begin
            (define (f args ...)
              body ... body-final)
-           
+
            (define (Jf s args ...)
              body* ... body*-final-expr
              )))]))
