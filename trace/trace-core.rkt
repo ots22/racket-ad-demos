@@ -50,8 +50,7 @@
                          #'arg-traces-pat
                          #'(trace-append
                             (apply trace-append (reverse rest-args))
-                            arg-traces-pat))]
-                    [f-val #'f])
+                            arg-traces-pat))])
        #'(define (f args ... . rest-args)
            (let (;; shadow the actual args (which have trace annotations)
                  [result     (let arg-let body ...)]
