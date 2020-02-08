@@ -9,7 +9,6 @@
 )
 
 (module+ slideshow
-  (start-at-recent-slide)
   (define racket-logo (bitmap "racket-logo.png"))
   (define λ-days-logo (bitmap "lambda-days-logo.png"))
   (define frac-client-h (blank (* 0.15 client-h) (* 0.15 client-h)))
@@ -152,17 +151,206 @@
    ;; (para "=>" (code #,(frame (code 5))))
 
    (para (code x))
-   (para "=>" (frame (x*)))
+   (para "=>" (code 3) ", as " (frame (x*)))
 
    (para (code y))
-   (para "=>" (frame (y*)))
+   (para "=>" (code 4) ", as " (frame (y*)))
 
    (para (code (sum-squares x y)))
 
    ;(para "=>" (code (sum-squares #,(frame x*) #,(frame y*))))
-   (para "=>" (code-align (frame (vc-append (x*) (y*) (z*)))))
+   (para "=>" (code 25) ", as " (code-align (frame (vc-append (x*) (y*) (z*)))))
    
    }
+
+  {slide
+   (para "Let's make a little language that does this...")
+   }
+
+  {slide
+   #:title "What is a language?"
+   (para "Functions")
+   (para "Other special forms (" (code if) "," (code λ) "," (code require)
+         ", ...)")
+   (para "Evaluation model")
+   (para "Literal data")
+   (para "Syntax")
+   }
+  ;; e.g. simple 'language' could just involve providing some functions
+  ;; ... all the way to something with a custom reader
+  
+  {slide
+   #:title "assignments"
+   (code
+    (struct assignment (id expr val) 
+      #:transparent
+      #:guard (struct-guard/c symbol? expr? any/c)))
+   
+   'next
+   (code assignment?
+         assignment-id
+         assignment-expr
+         assignment-val)
+
+   'next
+   (code
+    (define (expr? e)
+      (match e
+        [(list 'constant _) #t]
+        [(list 'app (? symbol? _) ..1) #t]
+        [_ #f])))
+   }
+
+  {slide
+   #:title "trace"
+   (code (struct trace assignments))
+   
+   (para (it "top") "of a trace is the most recent assignment")
+   (code (top tr))
+
+   'next
+   (code
+    (top-val tr)
+    (top-id tr)
+    (top-expr tr))
+
+   'next
+   (code (trace-add tr assgn)
+         (trace-append trs ...))
+   
+   }
+
+  {slide 
+   #:title "trace-lang functions"
+   (code
+    (define (+& a b)
+      (trace-add 
+       (trace-append a b)
+       (make-assignment 
+        #:id   (next-id)
+        #:expr (list 'app '+ (top-id a) (top-id b))
+        #:val  (+ (top-val a) (top-val b))))))
+   }
+
+  {slide 
+   #:title "trace-lang functions"
+   (code
+    (define (*& a b)
+      (trace-add 
+       (trace-append a b)
+       (make-assignment 
+        #:id   (next-id)
+        #:expr (list 'app '* (top-id a) (top-id b))
+        #:val  (* (top-val a) (top-val b))))))
+   }
+
+  {slide 
+   #:title "trace-lang functions"
+   (code
+    (define (exp& x)
+      (trace-add 
+       x
+       (make-assignment 
+        #:id   (next-id)
+        #:expr (list 'app 'exp (top-id x))
+        #:val  (exp (top-val x))))))
+   }
+  
+  ;; ----------------------------------------
+
+  (define def-traced-f
+    (code 
+     (define (f a ...)
+       (trace-add
+        (trace-append a ...)
+        (make-assignment
+         #:id   (next-id)
+         #:expr (list 'app f-name (top-id a) ...)
+         #:val  (let ([a (top-val a)] ...)
+                  body ...))))))
+
+  (define def-traced-f-stx
+    (ht-append (codeblock-pict "#'") def-traced-f))
+
+  (define def-traced-macro-full
+    (code
+     (define-syntax (define-traced-primitive stx)
+       (syntax-case stx ()
+         [(_ (f a ...) f-name 
+             body ...)
+         #,(cellophane def-traced-f-stx 0.0)]))))
+
+  (define (place-over-trace-macro p opacity)
+    (let-values ([(dx dy)
+                  (lt-find def-traced-macro-full def-traced-f-stx)])
+      (displayln (format "~a ~a" dx dy))
+      (panorama
+       (pin-over (cellophane def-traced-macro-full opacity)
+                 dx dy
+                 p))))
+
+  {slide (place-over-trace-macro (hc-append (ghost (tt "#'")) def-traced-f)
+                                 0.0)}
+
+  {slide (place-over-trace-macro def-traced-f-stx
+                                 0.0)}
+
+  {slide (place-over-trace-macro (cellophane def-traced-f-stx 0.2)
+                                 1.0)}
+
+  {slide (place-over-trace-macro def-traced-f-stx
+                                 1.0)}
+
+  {slide
+   #:title "trace-lang functions"
+   (code
+    (define-traced-primitive (+& a b) '+
+      (+ a b)))}
+
+
+              ;; def-traced-f
+              ;; rtl-find
+              ;; (show (text "hello"))))}
+  
+  ;; {slide 
+  ;;  (vl-append 10
+  ;;             (cellophane def-traced-1.1 0.0)
+  ;;             (cellophane def-traced-1.2 0.0)
+  ;;             (codeblock-pict def-traced-2-plain))
+  ;;  }
+
+  ;; {slide 
+  ;;  (vl-append 10
+  ;;             (cellophane def-traced-1.1 0.0)
+  ;;             (cellophane def-traced-1.2 0.0)
+  ;;             (codeblock-pict def-traced-2-stx))
+  ;;  }
+  
+  ;; {slide
+  ;;  (vl-append 10
+  ;;             (cellophane def-traced-1.1 0.2)
+  ;;             (cellophane def-traced-1.2 0.2)
+  ;;             (codeblock-pict def-traced-2-stx))
+  ;;  }
+
+
+  
+  
+;typeset-code
+
+  {slide
+   (codeblock-pict
+    #:keep-lang-line? #t
+    (string-join 
+     '("#lang racket"
+       ""
+       "..."
+       ""
+       "(provide (rename-out [+& +]))"
+       ""
+       "...")
+     "\n"))
+    }
 
 
   {slide 
@@ -177,12 +365,27 @@
    ;; break out to DrRacket (maybe - with no hiding produces a lot of stuff)!
 
    ;; macro step a simple example (+ 1 2)
-   ;; (+ 1 2)
-   ;; (#%app + 1 2)
-   ;; (#%app + (#%datum . 1) (#%datum . 2))
-   ;;
-   ;; where #%app, #%datum etc belong to the base language
+   (code
+    (+ 1 2)
+    => (#%app + 1 2)
+    => (#%app + (#%datum . 1) (#%datum . 2)))
+   }
 
+  {slide
+   #:title "Interposition points"
+   (code #%app)
+   (code #%datum)
+   (code #%module-begin)
+   (code #%top)
+   (code #%top-interaction)
+   }
+
+  {slide
+   (para
+    (code
+     (#%datum . 1) 
+     => (make-trace (make-assignment #:val 1)))
+    (tt "=> %1 | (constant 1) | 1"))
    }
 
   ;; ...
@@ -195,11 +398,12 @@
 
   ;; functions-as-values too (need to extend trace)?
 
-  {slide
-   ;; the rename-out trick
-   (item "Can refer to both the new and old name in the program")
-   (item "External interface is only by the new name")
-   }
+  ;; {slide
+  ;;  ;; the rename-out trick
+  ;;  (item "Can refer to both the new and old name in the program")
+  ;;  (item "External interface is only by the new name")
+  ;;  }
+
 
   {slide
    (big (t "http://github.com/ots22/rackpropagator"))
@@ -209,6 +413,10 @@
    #:title "References"
    
    }
+
+  (start-at-recent-slide)
+  (set-page-numbers-visible! #t)
+ 
 
   );; module slideshow
 
@@ -287,3 +495,4 @@
 ;;   ;  )
 
 ;; ) ; module slideshow
+
