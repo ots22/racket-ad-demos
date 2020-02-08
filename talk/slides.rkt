@@ -30,6 +30,8 @@
 
       (code-align (cc-superimpose rect stacked))))
 
+  (define-syntax-rule (D a) (hc-append (t "D") (code a)))
+
   (plot-font-size 16)
   (plot-width (inexact->exact (round (* 0.8 client-w))))
   (plot-height (inexact->exact (round (* 0.8 client-h))))
@@ -93,13 +95,111 @@
    }
 
   {slide
-   #:title "Example: sum of squares"
+   #:title "composition"
+   (code
+    (compose g f)
+    (compose (D g (f x)) (D f x)))
+   
+   (code (* (D g (f x)) (D f x)))
+   
+
    }
-  
+
+  {slide
+   #:title "Example: sum of squares"
+   
+   (code (define (sum-squares a b)
+           (+ (* a a) (* b b))))
+
+   (para "Find D" (tt "sum-squares") #:align 'center)
+   }
+
+  {slide
+   (t "Explicit assignments for each operation:")
+
+   (vc-append
+    (para (code a) "and" (code b) "given;" #:align 'center)
+    (code c ← (* a a)
+          d ← (* b b)
+          e ← (+ c d)))
+   }
+
+  (define (Dsum-squares a Da b Db) (+ (* 2 Da a) (* 2 Db b)))
+
+  {slide
+   #:title "Example: sum of squares"
+
+   (code c ← (* a a)
+         d ← (* b b)
+         e ← (+ c d))
+   'next
+   (code 
+    #,(D c) ← (+ (* a #,(D a)) (* #,(D a) a))
+    #,(D d) ← (+ (* b #,(D b)) (* #,(D b) b))
+    #,(D e) ← (+ #,(D c) #,(D d)))
+   
+   ;; result is a linear function of a and b to a single number
+   'next
+   'alts
+   (list
+    (list
+     (code 
+      #,(D a) ← 1
+      #,(D b) ← 0))
+    
+    (list
+     (code 
+      #,(D a) ← 0
+      #,(D b) ← 1
+      ))
+    
+    (list
+     (code
+      #,(D a) ← 1
+      #,(D b) ← 0)
+     (code a ← 3
+           b ← 4)
+     (code (6 #,(ghost (code 8)))))
+
+    (list
+     (code
+      #,(D a) ← 0
+      #,(D b) ← 1)
+     (code a ← 3
+           b ← 4)
+     (code (6 8))))
+
+   }
+
+  ;; dw/dw
+
+  ;; dw/dy
+
+
+  ;; reverse mode
+  {slide
+   #:title "Example: sum of squares"
+
+   (code c ← (* a a)
+         d ← (* b b)
+         e ← (+ c d))
+   'next
+   ;; (code 
+   ;;  #,(A d) ← #,(A e
+   ;;  #,(A c) ← 
+   ;;  #,(A b) ← 
+   ;;  #,(A a) ← 
+
+   }
+
   ;; more examples ...
 
 
   ;; forward and backwards ...
+
+
+  ;; more general explanation ...
+
 
 
   {slide 
@@ -170,8 +270,8 @@
   {slide
    #:title "What is a language?"
    (para "Functions")
-   (para "Other special forms (" (code if) "," (code λ) "," (code require)
-         ", ...)")
+   (para "Other special forms (" (code if) "," (code λ) "," (code define)
+         ", " (code require) ", ... )")
    (para "Evaluation model")
    (para "Literal data")
    (para "Syntax")
@@ -203,8 +303,13 @@
 
   {slide
    #:title "trace"
-   (code (struct trace assignments))
-   
+   (code (struct trace (assignments)))
+
+   'next
+   (code (trace-add tr assgn)
+         (trace-append trs ...))
+
+   'next
    (para (it "top") "of a trace is the most recent assignment")
    (code (top tr))
 
@@ -214,9 +319,6 @@
     (top-id tr)
     (top-expr tr))
 
-   'next
-   (code (trace-add tr assgn)
-         (trace-append trs ...))
    
    }
 
@@ -227,7 +329,6 @@
       (trace-add 
        (trace-append a b)
        (make-assignment 
-        #:id   (next-id)
         #:expr (list 'app '+ (top-id a) (top-id b))
         #:val  (+ (top-val a) (top-val b))))))
    }
@@ -239,7 +340,6 @@
       (trace-add 
        (trace-append a b)
        (make-assignment 
-        #:id   (next-id)
         #:expr (list 'app '* (top-id a) (top-id b))
         #:val  (* (top-val a) (top-val b))))))
    }
@@ -251,7 +351,6 @@
       (trace-add 
        x
        (make-assignment 
-        #:id   (next-id)
         #:expr (list 'app 'exp (top-id x))
         #:val  (exp (top-val x))))))
    }
@@ -264,7 +363,6 @@
        (trace-add
         (trace-append a ...)
         (make-assignment
-         #:id   (next-id)
          #:expr (list 'app f-name (top-id a) ...)
          #:val  (let ([a (top-val a)] ...)
                   body ...))))))
@@ -277,8 +375,8 @@
      (define-syntax (define-traced-primitive stx)
        (syntax-case stx ()
          [(_ (f a ...) f-name 
-             body ...)
-         #,(cellophane def-traced-f-stx 0.0)]))))
+             body ...)          
+          #,(cellophane def-traced-f-stx 0.0)]))))
 
   (define (place-over-trace-macro p opacity)
     (let-values ([(dx dy)
@@ -304,53 +402,36 @@
    #:title "trace-lang functions"
    (code
     (define-traced-primitive (+& a b) '+
-      (+ a b)))}
-
-
-              ;; def-traced-f
-              ;; rtl-find
-              ;; (show (text "hello"))))}
-  
-  ;; {slide 
-  ;;  (vl-append 10
-  ;;             (cellophane def-traced-1.1 0.0)
-  ;;             (cellophane def-traced-1.2 0.0)
-  ;;             (codeblock-pict def-traced-2-plain))
-  ;;  }
-
-  ;; {slide 
-  ;;  (vl-append 10
-  ;;             (cellophane def-traced-1.1 0.0)
-  ;;             (cellophane def-traced-1.2 0.0)
-  ;;             (codeblock-pict def-traced-2-stx))
-  ;;  }
-  
-  ;; {slide
-  ;;  (vl-append 10
-  ;;             (cellophane def-traced-1.1 0.2)
-  ;;             (cellophane def-traced-1.2 0.2)
-  ;;             (codeblock-pict def-traced-2-stx))
-  ;;  }
-
-
-  
-  
-;typeset-code
+      (+ a b))
+    (define-traced-primitive (*& a b) '*
+      (* a b))
+    (code:comment "...")
+    (define-traced-primitive (<& a b) '< 
+      (< a b))
+    (code:comment "...")
+    (define-traced-primitive (cons& a b) 'cons
+      (cons a b))
+    (code:comment "..."))}
 
   {slide
-   (codeblock-pict
-    #:keep-lang-line? #t
-    (string-join 
-     '("#lang racket"
-       ""
-       "..."
-       ""
-       "(provide (rename-out [+& +]))"
-       ""
-       "...")
-     "\n"))
+   (vl-append
+    (tt "#lang racket")
+    (code 
+     (code:comment "...")
+     (provide (rename-out [+& +]
+                          [*& *]
+                          [exp& exp]
+                          ...))
+     (code:comment "...")))
+                  
     }
 
+  {slide
+   #:title "rename-out"
+   (item "Useful for modifying behaviour of an existing language")
+   (item "Can refer to the original binding in the defining module")
+   (item "External interface has the new binding")
+   }
 
   {slide 
    #:title "Interposition points"
@@ -382,7 +463,7 @@
   {slide
    (para
     (code
-     (#%datum . 1) 
+     (#%datum . 1)
      => (make-trace (make-assignment #:val 1)))
     (tt "=> %1 | (constant 1) | 1"))
    }
@@ -397,11 +478,6 @@
 
   ;; functions-as-values too (need to extend trace)?
 
-  ;; {slide
-  ;;  ;; the rename-out trick
-  ;;  (item "Can refer to both the new and old name in the program")
-  ;;  (item "External interface is only by the new name")
-  ;;  }
 
 
   {slide
@@ -413,7 +489,7 @@
    
    }
 
-  (start-at-recent-slide)
+;  (start-at-recent-slide)
   (set-page-numbers-visible! #t)
  
 
