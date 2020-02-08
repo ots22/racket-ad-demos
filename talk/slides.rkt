@@ -283,7 +283,6 @@
   (define (place-over-trace-macro p opacity)
     (let-values ([(dx dy)
                   (lt-find def-traced-macro-full def-traced-f-stx)])
-      (displayln (format "~a ~a" dx dy))
       (panorama
        (pin-over (cellophane def-traced-macro-full opacity)
                  dx dy
