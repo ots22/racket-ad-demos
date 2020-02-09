@@ -484,12 +484,66 @@
    (big (t "http://github.com/ots22/rackpropagator"))
    }
 
+  (define (cite type [year #f] #:url url #:title title #:authors authors)
+    (para
+     (small (caps (t type))) (italic (para title))
+     (if (pict? url) (para url) (para (tt url)))
+     (para authors (if year (string-append "(" year ")") ""))))
+
   {slide
    #:title "References"
+   (cite "talk"
+         #:url     "https://youtu.be/NkJNcEed2NU"
+         #:title   "From automatic differentiation to message passing"
+         #:authors "Tom Minka")
    
+   (cite "paper"   "2018"
+         #:url     "https://arxiv.org/abs/1804.00746"
+         #:title   "The simple essence of automatic differentiation"
+         #:authors "Conal Elliot")
+
+   (cite "talk"
+         #:url     "https://youtu.be/Shl3MtWGu18"
+         #:title   "The simple essence of automatic differentiation"
+         #:authors "Conal Elliot")
+   }
+  {slide
+   #:title "References"
+   (cite "paper" "2008"
+         #:url (para (tt "https://www.bcl.hamilton.ie⬋")
+                     (tt "    /~barak/papers/toplas-reverse.pdf")
+                     (tt "doi:10.1145/1330017.1330018"))
+
+         #:title   "Reverse-Mode AD in a Functional Framework: Lambda the Ultimate Backpropagator"
+         #:authors "Pearlmutter & Siskind")
+
+   (cite "paper" "2018"
+         #:url     "https://arxiv.org/abs/1803.10228"
+         #:title   "Demystifying Differentiable Programming: Shift/Reset the Penultimate Backpropagator"
+         #:authors (list "Fei Wang" (it "et al.")))
    }
 
-;  (start-at-recent-slide)
+  {slide
+   #:title "References"
+   (cite "book" "2015"
+         #:url
+         (para (tt "https://mitpress.mit.edu/sites/default/files⬋")
+               (tt "    /titles/content/sicm_edition_2/book.html"))
+         #:title   "Structure and Interpretation of Classical Mechanics (2nd ed.)"
+         #:authors "Gerald Jay Sussman & Jack Wisdom")
+
+   (scale-to-fit (bitmap "sicm-cover.jpg") (* 0.5 client-w) (* 0.5 client-h))
+
+
+   }
+
+  ;; {slide
+  ;;  ;; AD projects
+  ;;  }
+
+
+
+  (start-at-recent-slide)
   (set-page-numbers-visible! #t)
  
 
