@@ -486,6 +486,7 @@
   {slide
    ;; recap when we've finished the trace, and demonstrate it in a
    ;; repl a few times, without, then with trace-show
+   (t "(try it)")
    }
 
 
