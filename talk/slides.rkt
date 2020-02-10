@@ -42,6 +42,14 @@ latex
 
       (code-align (cc-superimpose rect stacked))))
 
+  (define (replace-within outer-pict outer-opacity
+                          inner-pict [replacement-pict inner-pict])
+    (let-values ([(dx dy) (lt-find outer-pict inner-pict)])
+      (panorama
+       (pin-over (cellophane outer-pict outer-opacity)
+                 dx dy
+                 replacement-pict))))
+
   (define-syntax-rule (D a) (hc-append (code d) (code a)))
 
   (plot-font-size 24)
@@ -274,6 +282,47 @@ latex
   (make-slide-fwd-ad 5 #:box-init? #t #:init-option 1)
   (make-slide-fwd-ad 6 #:init-option 1)
 
+  {slide
+   (para "Often write" (code #,(D x)) "instead of" ($"\\dd{x}{r}"))
+   (para "Known as" (it "perturbation variables"))
+   }
+
+  (define fwd-mode-graph
+    (scale-to-fit (bitmap "fm.png")
+                  (* 0.45 client-w) (* 0.6 client-h)))
+
+  (define fwd-mode-graph-2
+    (scale-to-fit (bitmap "fm2.png")
+                  (* 0.45 client-w) (* 0.8 client-h)))
+
+  (define rev-mode-graph
+    (scale-to-fit (bitmap "rm.png")
+                  (* 0.5 client-w) (* 0.7 client-h)))
+
+  (define rev-mode-graph-2
+    (scale-to-fit (bitmap "rm2.png")
+                  (* 0.5 client-w) (* 0.8 client-h)))
+
+  {slide
+   (hc-append
+    (scale-to-fit (bitmap "orig.png")
+                  (* 0.45 client-w) (* 0.5 client-h))
+    (blank (* 0.05 client-w))
+    (arrow 30 0)
+    (blank (* 0.05 client-w))
+    (cc-superimpose fwd-mode-graph (ghost fwd-mode-graph-2)))
+   }
+
+  {slide
+   (hc-append
+    (scale-to-fit (bitmap "orig.png")
+                  (* 0.45 client-w) (* 0.5 client-h))
+    (blank (* 0.05 client-w))
+    (arrow 30 0)
+    (blank (* 0.05 client-w))
+    (cc-superimpose fwd-mode-graph-2 (ghost fwd-mode-graph)))
+   }
+
   (define (make-slide-rev-ad n)
 
     (define (eqn-lines n)
@@ -318,10 +367,33 @@ latex
   (make-slide-rev-ad 7)
 
   {slide
+   (para "Often write" (code Ax) "instead of" ($"\\dd{s}{x}"))
+   (para "Known as" (it "sensitivity variables") "or" (it "adjoints"))
+   }
+
+  {slide
+   (hc-append
+    (scale-to-fit (bitmap "orig.png")
+                  (* 0.45 client-w) (* 0.5 client-h))
+    (blank (* 0.05 client-w))
+    (arrow 30 0)
+    (blank (* 0.05 client-w))
+    (cc-superimpose rev-mode-graph (ghost rev-mode-graph-2)))
+   }
+
+  {slide
+   (hc-append
+    (scale-to-fit (bitmap "orig.png")
+                  (* 0.45 client-w) (* 0.5 client-h))
+    (blank (* 0.05 client-w))
+    (arrow 30 0)
+    (blank (* 0.05 client-w))
+    (cc-superimpose rev-mode-graph-2 (ghost rev-mode-graph)))
+   }
+
+  {slide
    (para "Promise of AD is we can do more than simple arithmetic"
          "expressions") }
-
-
 
   {slide
    (para "Idea: every value returned by a program was computed by a"
@@ -433,6 +505,11 @@ latex
    (item (para "flat but topologically sorted"))
    (item (para "contains only" (it "primitive operations")))
    }
+
+  ;; {slide
+  ;;  (code (define (sum-squares a b)
+  ;;          (+ (* a a) (* b b))))
+  ;;  }
 
   {slide
    (para "  " (code (sum-squares x y)))
@@ -701,39 +778,124 @@ latex
    }
 
 
+  {slide
+   #:title "Recap: Forward-mode AD"
+   (hc-append
+    (scale-to-fit (bitmap "orig.png")
+                  (* 0.45 client-w) (* 0.5 client-h))
+    (blank (* 0.05 client-w))
+    (arrow 30 0)
+    (blank (* 0.05 client-w))
+    (cc-superimpose fwd-mode-graph-2 (ghost fwd-mode-graph)))
+   }
+
+  ;; ----------------------------------------
+  ;; code for forward derivs
+
+
+  (define D/f-x           (code [x         (top-id (list-ref xs i))]))
+  (define D/f-indep-ids   (code [indep-ids (map top-id xs)]))
+  (define D/f-result      (code [result    (apply f xs)]))
+  (define D/f-fold-init   (code ([tr result]
+                                 [deriv-map (hash)])))
+  (define D/f-trace-items (code [z (reverse (trace-items result))]))
+  (define D/f-fold-values (code {values
+                                 (trace-append dz tr)
+                                 (hash-set deriv-map
+                                           (id z) (top-id dz))}))
+  (define D/f-for/fold    (code for/fold))
+  (define D/f-let-dz      (code let ([dz (D/f-prim-op z x indep-ids
+                                                      tr deriv-map)])))
+  (define D/f-fold        (code (#,D/f-for/fold #,D/f-fold-init
+                                          (#,D/f-trace-items)
+                                 (#,D/f-let-dz
+                                    #,D/f-fold-values))))
+  (define D/f-prune-result (code (trace-prune Dresult)))
+
+  (define D/f-full
+   (parameterize ((current-font-size (round (* (current-font-size) 9/10))))
+     (code
+      (define ((D/f i f) . xs)
+        (let (#,D/f-x
+              #,D/f-indep-ids
+              #,D/f-result)
+
+          (define-values (Dresult _)
+            #,D/f-fold)
+
+          #,D/f-prune-result)))))
+
+  {slide
+   #:title "Forward-mode AD"
+   D/f-full}
+
+  {slide
+   #:title "Forward-mode AD"
+   (replace-within D/f-full 0.15
+                   D/f-fold (replace-within D/f-fold 0.5 D/f-for/fold))}
+
+  {slide
+   #:title "Forward-mode AD"
+   (code
+    (for/fold ([sum 0]
+               [prod 1])
+              ([x (range 1 6)])
+      (values (+ x sum)
+              (* x prod)))
+    =>
+    15
+    120)}
+
+  (for ([highlight (list D/f-x
+                         D/f-indep-ids
+                         D/f-result
+                         D/f-fold-init
+                         D/f-trace-items
+                         D/f-let-dz
+                         D/f-fold-values
+                         D/f-prune-result)])
+      {slide
+       #:title "Forward-mode AD"
+       (replace-within D/f-full 0.2
+                       highlight)})
+
+
+  {slide
+   (t "TODO: D/f-prim-op ?")}
+
 
   ;; ----------------------------------------
 
-  {slide
-   ;; language model
-   (code
-    (define #,(it "x") #,(it "E"))
-    ...
-    #,(blank 0 20)
-      #,(t "where")
-    #,(it "E") = (#,(it "op") #,(it "x") ...)
-    #,(ghost (it "E")) $ #,(it "c")
-    #,(it "x : symbol")
-    #,(it "c : numeric constant")
-    #,(it "op : primitive operation"))
-   }
+  ;; {slide
+  ;;  ;; language model
+  ;;  (code
+  ;;   (define #,(it "x") #,(it "E"))
+  ;;   ...
+  ;;   #,(blank 0 20)
+  ;;     #,(t "where")
+  ;;   #,(it "E") = (#,(it "op") #,(it "x") ...)
+  ;;   #,(ghost (it "E")) $ #,(it "c")
+  ;;   #,(it "x : symbol")
+  ;;   #,(it "c : numeric constant")
+  ;;   #,(it "op : primitive operation"))
+  ;;  }
 
-  {slide
-   (code
-    #,(it "M") = (define #,(it "x") #,(it "c"))
-    #,(ghost (it "M")) $ (define #,(it "x") #,(it "O"))
-    #,(ghost (it "M")) $ (define #,(it "x") #,(it "E"))
-    #,(ghost (it "M")) $ (define #,(hc-append (it "x") (subscript (it "0"))) (if #,(hc-append (it "x") (subscript (it "1"))) #,(hc-append (it "E") (subscript (it "0"))) #,(hc-append (it "E") (subscript (it "1")))))
-    #,(ghost (it "M")) $ (define (#,(it "x") ...) #,(it "M") ...)
+  ;; {slide
+  ;;  (code
+  ;;   #,(it "M") = (define #,(it "x") #,(it "c"))
+  ;;   #,(ghost (it "M")) $ (define #,(it "x") #,(it "O"))
+  ;;   #,(ghost (it "M")) $ (define #,(it "x") #,(it "E"))
+  ;;   #,(ghost (it "M")) $ (define #,(hc-append (it "x") (subscript (it "0"))) (if #,(hc-append (it "x") (subscript (it "1"))) #,(hc-append (it "E") (subscript (it "0"))) #,(hc-append (it "E") (subscript (it "1")))))
+  ;;   #,(ghost (it "M")) $ (define (#,(it "x") ...) #,(it "M") ...)
 
-    #,(blank 0 20)
-      #,(t "where")
-    #,(it "O") = (#,(it "op") #,(it "x") ...)
-    #,(it "E") = (#,(hc-append (it "x") (subscript (it "0"))) #,(hc-append (it "x") (subscript (it "1"))) ...)
-    #,(it "x : symbol")
-    #,(it "c : numeric constant")
-    #,(it "op : primitive operation"))
-   }
+  ;;   #,(blank 0 20)
+  ;;     #,(t "where")
+  ;;   #,(it "O") = (#,(it "op") #,(it "x") ...)
+  ;;   #,(it "E") = (#,(hc-append (it "x") (subscript (it "0"))) #,(hc-append (it "x") (subscript (it "1"))) ...)
+  ;;   #,(it "x : symbol")
+  ;;   #,(it "c : numeric constant")
+  ;;   #,(it "op : primitive operation"))
+  ;;  }
 
 
 
@@ -817,14 +979,6 @@ latex
        (if (or (dual-number? x) (dual-number? y))
            #,dual-+-expr
            (+ x y)))))
-
-  (define (replace-within outer-pict outer-opacity
-                          inner-pict [replacement-pict inner-pict])
-    (let-values ([(dx dy) (lt-find outer-pict inner-pict)])
-      (panorama
-       (pin-over (cellophane outer-pict outer-opacity)
-                 dx dy
-                 replacement-pict))))
 
   {slide
    #:title "Dual numbers"
@@ -997,7 +1151,7 @@ latex
 
 
 
-  ;(start-at-recent-slide)
+  (start-at-recent-slide)
   (set-page-numbers-visible! #t)
 
 
