@@ -17,10 +17,10 @@
     (lambda ([fit-width (blank 0)])
       (define stacked (apply vc-append picts))
       (define rect
-        (scale-to-fit (cellophane 
+        (scale-to-fit (cellophane
                        (filled-rectangle 1 1
-                                         #:color color 
-                                         #:draw-border? #f) 
+                                         #:color color
+                                         #:draw-border? #f)
                        0.1)
                       (vc-append stacked (scale-to-fit fit-width
                                                        (pict-width fit-width)
@@ -43,12 +43,12 @@
    (titlet "with Racket")
    (t "Oliver Strickson")
    (t "2020-02-14")
-   
+
    (hc-append
     (scale-to-fit racket-logo frac-client-h)
     (blank (* 0.3 client-w) 0)
     (scale-to-fit λ-days-logo frac-client-h #:mode 'preserve/max))}
-  
+
   ;; ----------------------------------------
 
   {slide
@@ -57,28 +57,28 @@
 
   ;; ----------------------------------------
 
-  {slide 
+  {slide
    #:title "Introduction"
    }
 
   ;; ----------------------------------------
 
-  {slide 
+  {slide
    #:title "Differentiation"
-   
-   ;; 
+
+   ;;
    }
 
   ;; ----------------------------------------
 
   {slide
    #:title "Language-oriented programming"
-   
+
    }
 
   ;; ----------------------------------------
-  
-  {slide 
+
+  {slide
    #:title "Overview"
    (item "Automatic differentiation algorithm")
    (item "Implementation by program tracing")
@@ -87,7 +87,7 @@
    (item "Local program transformation: Continuations")
    (item "Other resources")
    }
-  
+
   {slide
    (para "Idea: every value returned by a program was computed by a"
          "sequence of arithmetic operations.")
@@ -99,15 +99,15 @@
    (code
     (compose g f)
     (compose (D g (f x)) (D f x)))
-   
+
    (code (* (D g (f x)) (D f x)))
-   
+
 
    }
 
   {slide
    #:title "Example: sum of squares"
-   
+
    (code (define (sum-squares a b)
            (+ (* a a) (* b b))))
 
@@ -133,26 +133,26 @@
          d ← (* b b)
          e ← (+ c d))
    'next
-   (code 
+   (code
     #,(D c) ← (+ (* a #,(D a)) (* #,(D a) a))
     #,(D d) ← (+ (* b #,(D b)) (* #,(D b) b))
     #,(D e) ← (+ #,(D c) #,(D d)))
-   
+
    ;; result is a linear function of a and b to a single number
    'next
    'alts
    (list
     (list
-     (code 
+     (code
       #,(D a) ← 1
       #,(D b) ← 0))
-    
+
     (list
-     (code 
+     (code
       #,(D a) ← 0
       #,(D b) ← 1
       ))
-    
+
     (list
      (code
       #,(D a) ← 1
@@ -184,11 +184,11 @@
          d ← (* b b)
          e ← (+ c d))
    'next
-   ;; (code 
+   ;; (code
    ;;  #,(A d) ← #,(A e
-   ;;  #,(A c) ← 
-   ;;  #,(A b) ← 
-   ;;  #,(A a) ← 
+   ;;  #,(A c) ←
+   ;;  #,(A b) ←
+   ;;  #,(A a) ←
 
    }
 
@@ -202,9 +202,9 @@
 
 
 
-  {slide 
+  {slide
    #:title "Tracing program execution"
-   
+
    (para "We want to make a particular type of trace, which is:")
    (item (para "flat"))
    (item (para "contains only" (it "primitive operations")))
@@ -228,13 +228,13 @@
    (para "   " (code (sum-squares x y)))
 
    (para "=>" (code (sum-squares #,(frame (x)) #,(frame (y)))))
-   (para "=>" (code-align (frame (vc-append 
+   (para "=>" (code-align (frame (vc-append
                                   (x (z))
                                   (y (z))
                                   (z)))))
    }
 
-  (define x* (stacked-rect #:color "red" 
+  (define x* (stacked-rect #:color "red"
                            (tt "%1 | (constant 3)  |  3")))
 
   (define y* (stacked-rect #:color "blue"
@@ -260,7 +260,7 @@
 
    ;(para "=>" (code (sum-squares #,(frame x*) #,(frame y*))))
    (para "=>" (code 25) ", as " (code-align (frame (vc-append (x*) (y*) (z*)))))
-   
+
    }
 
   {slide
@@ -278,14 +278,14 @@
    }
   ;; e.g. simple 'language' could just involve providing some functions
   ;; ... all the way to something with a custom reader
-  
+
   {slide
    #:title "assignments"
    (code
-    (struct assignment (id expr val) 
+    (struct assignment (id expr val)
       #:transparent
       #:guard (struct-guard/c symbol? expr? any/c)))
-   
+
    'next
    (code assignment?
          assignment-id
@@ -319,46 +319,46 @@
     (top-id tr)
     (top-expr tr))
 
-   
+
    }
 
-  {slide 
+  {slide
    #:title "trace-lang functions"
    (code
     (define (+& a b)
-      (trace-add 
+      (trace-add
        (trace-append a b)
-       (make-assignment 
+       (make-assignment
         #:expr (list 'app '+ (top-id a) (top-id b))
         #:val  (+ (top-val a) (top-val b))))))
    }
 
-  {slide 
+  {slide
    #:title "trace-lang functions"
    (code
     (define (*& a b)
-      (trace-add 
+      (trace-add
        (trace-append a b)
-       (make-assignment 
+       (make-assignment
         #:expr (list 'app '* (top-id a) (top-id b))
         #:val  (* (top-val a) (top-val b))))))
    }
 
-  {slide 
+  {slide
    #:title "trace-lang functions"
    (code
     (define (exp& x)
-      (trace-add 
+      (trace-add
        x
-       (make-assignment 
+       (make-assignment
         #:expr (list 'app 'exp (top-id x))
         #:val  (exp (top-val x))))))
    }
-  
+
   ;; ----------------------------------------
 
   (define def-traced-f
-    (code 
+    (code
      (define (f a ...)
        (trace-add
         (trace-append a ...)
@@ -374,8 +374,8 @@
     (code
      (define-syntax (define-traced-primitive stx)
        (syntax-case stx ()
-         [(_ (f a ...) f-name 
-             body ...)          
+         [(_ (f a ...) f-name
+             body ...)
           #,(cellophane def-traced-f-stx 0.0)]))))
 
   (define (place-over-trace-macro p opacity)
@@ -406,7 +406,7 @@
     (define-traced-primitive (*& a b) '*
       (* a b))
     (code:comment "...")
-    (define-traced-primitive (<& a b) '< 
+    (define-traced-primitive (<& a b) '<
       (< a b))
     (code:comment "...")
     (define-traced-primitive (cons& a b) 'cons
@@ -416,14 +416,14 @@
   {slide
    (vl-append
     (tt "#lang racket")
-    (code 
+    (code
      (code:comment "...")
      (provide (rename-out [+& +]
                           [*& *]
                           [exp& exp]
                           ...))
      (code:comment "...")))
-                  
+
     }
 
   {slide
@@ -433,7 +433,7 @@
    (item "External interface has the new binding")
    }
 
-  {slide 
+  {slide
    #:title "Interposition points"
    ;; #%datum, #%app etc
 
@@ -496,7 +496,7 @@
          #:url     "https://youtu.be/NkJNcEed2NU"
          #:title   "From automatic differentiation to message passing"
          #:authors "Tom Minka")
-   
+
    (cite "paper"   "2018"
          #:url     "https://arxiv.org/abs/1804.00746"
          #:title   "The simple essence of automatic differentiation"
@@ -543,9 +543,9 @@
 
 
 
-  (start-at-recent-slide)
+  ;(start-at-recent-slide)
   (set-page-numbers-visible! #t)
- 
+
 
   );; module slideshow
 
@@ -553,7 +553,7 @@
 
   ;; {slide
   ;;  (plot (list
-  ;;         (function (λ (x) (sqrt x)) 0 10 
+  ;;         (function (λ (x) (sqrt x)) 0 10
   ;;                   #:label "sqrt(x)")
   ;;         (function (λ (x) (+ (* 0.25 x) 1)) 0 10
   ;;                   #:label "D sqrt(x)")))}

@@ -150,5 +150,3 @@
 
 (define ((grad f) . args)
   (build-vector (length args) (λ (i) (apply ((D i) f) args))))
-
-
