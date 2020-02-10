@@ -21,8 +21,8 @@
 \newcommand{\dd}[2]{\tfrac{\mathsf{d}#1}{\mathsf{d}#2}}
 latex
                 )
-  (define racket-logo (bitmap "racket-logo.png"))
-  (define λ-days-logo (bitmap "lambda-days-logo.png"))
+  (define racket-logo (bitmap "images/racket-logo.png"))
+  (define λ-days-logo (bitmap "images/lambda-days-logo.png"))
   (define frac-client-h (blank (* 0.15 client-h) (* 0.15 client-h)))
 
   (define (stacked-rect #:color color . picts)
@@ -80,12 +80,12 @@ latex
      (t "Research Software Engineer")
      (t "Research Engineering Group"))
     (blank 200 0)
-    (scale-to-fit (bitmap "turing-logo.png")
+    (scale-to-fit (bitmap "images/turing-logo.png")
                   (* 0.3 client-w) (* 0.3 client-h))
     )
 
    (vl-append
-    (scale-to-fit (bitmap "british-library.jpg")
+    (scale-to-fit (bitmap "images/british-library.jpg")
                   (* 0.9 client-w) (* 0.5 client-h))
     (small (t "Photo credit: https://commons.wikimedia.org/wiki/User:Patche99z")))
    }
@@ -213,7 +213,7 @@ latex
    }
 
   (define f-graph
-    (scale-to-fit (bitmap "f.png") (* 0.6 client-w) (* 0.6 client-h)))
+    (scale-to-fit (bitmap "images/f.png") (* 0.6 client-w) (* 0.6 client-h)))
 
   {slide
    #:title "Arithmetic expressions"
@@ -288,24 +288,24 @@ latex
    }
 
   (define fwd-mode-graph
-    (scale-to-fit (bitmap "fm.png")
+    (scale-to-fit (bitmap "images/fm.png")
                   (* 0.45 client-w) (* 0.6 client-h)))
 
   (define fwd-mode-graph-2
-    (scale-to-fit (bitmap "fm2.png")
+    (scale-to-fit (bitmap "images/fm2.png")
                   (* 0.45 client-w) (* 0.8 client-h)))
 
   (define rev-mode-graph
-    (scale-to-fit (bitmap "rm.png")
+    (scale-to-fit (bitmap "images/rm.png")
                   (* 0.5 client-w) (* 0.7 client-h)))
 
   (define rev-mode-graph-2
-    (scale-to-fit (bitmap "rm2.png")
+    (scale-to-fit (bitmap "images/rm2.png")
                   (* 0.5 client-w) (* 0.8 client-h)))
 
   {slide
    (hc-append
-    (scale-to-fit (bitmap "orig.png")
+    (scale-to-fit (bitmap "images/orig.png")
                   (* 0.45 client-w) (* 0.5 client-h))
     (blank (* 0.05 client-w))
     (arrow 30 0)
@@ -315,7 +315,7 @@ latex
 
   {slide
    (hc-append
-    (scale-to-fit (bitmap "orig.png")
+    (scale-to-fit (bitmap "images/orig.png")
                   (* 0.45 client-w) (* 0.5 client-h))
     (blank (* 0.05 client-w))
     (arrow 30 0)
@@ -373,7 +373,7 @@ latex
 
   {slide
    (hc-append
-    (scale-to-fit (bitmap "orig.png")
+    (scale-to-fit (bitmap "images/orig.png")
                   (* 0.45 client-w) (* 0.5 client-h))
     (blank (* 0.05 client-w))
     (arrow 30 0)
@@ -383,7 +383,7 @@ latex
 
   {slide
    (hc-append
-    (scale-to-fit (bitmap "orig.png")
+    (scale-to-fit (bitmap "images/orig.png")
                   (* 0.45 client-w) (* 0.5 client-h))
     (blank (* 0.05 client-w))
     (arrow 30 0)
@@ -781,7 +781,7 @@ latex
   {slide
    #:title "Recap: Forward-mode AD"
    (hc-append
-    (scale-to-fit (bitmap "orig.png")
+    (scale-to-fit (bitmap "images/orig.png")
                   (* 0.45 client-w) (* 0.5 client-h))
     (blank (* 0.05 client-w))
     (arrow 30 0)
@@ -1136,7 +1136,7 @@ latex
          #:title   "Structure and Interpretation of Classical Mechanics (2nd ed.)"
          #:authors "Gerald Jay Sussman & Jack Wisdom")
 
-   (scale-to-fit (bitmap "sicm-cover.jpg") (* 0.5 client-w) (* 0.5 client-h))
+   (scale-to-fit (bitmap "images/sicm-cover.jpg") (* 0.5 client-w) (* 0.5 client-h))
    }
 
   {slide
