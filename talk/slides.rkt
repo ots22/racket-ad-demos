@@ -772,8 +772,12 @@
          #:authors "Gerald Jay Sussman & Jack Wisdom")
 
    (scale-to-fit (bitmap "sicm-cover.jpg") (* 0.5 client-w) (* 0.5 client-h))
+   }
 
-
+  {slide
+   #:title "Software"
+   (item "DiffSharp")
+   (item "qobi")
    }
 
   ;; {slide
