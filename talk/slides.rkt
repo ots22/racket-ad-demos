@@ -6,9 +6,20 @@
          ;scribble/eval
          slideshow/repl
          ;rsvg
+         slideshow/latex
 )
 
 (module+ slideshow
+
+  (setup-local-latex-cache)
+  (latex-debug? #t)
+  (add-preamble #<<latex
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{euler}
+\usepackage{xcolor}
+latex
+                )
   (define racket-logo (bitmap "racket-logo.png"))
   (define λ-days-logo (bitmap "lambda-days-logo.png"))
   (define frac-client-h (blank (* 0.15 client-h) (* 0.15 client-h)))
@@ -32,9 +43,11 @@
 
   (define-syntax-rule (D a) (hc-append (t "D") (code a)))
 
-  (plot-font-size 16)
-  (plot-width (inexact->exact (round (* 0.8 client-w))))
+  (plot-font-size 24)
+  (line-width 2.5)
+  (plot-width (inexact->exact (round (* 0.65 client-w))))
   (plot-height (inexact->exact (round (* 0.8 client-h))))
+  (plot-font-family 'default)
 
   ;; ----------------------------------------
 
@@ -77,21 +90,6 @@
   ;; ----------------------------------------
 
   {slide
-   #:title "Differentiation"
-
-   ;;
-   }
-
-  ;; ----------------------------------------
-
-  {slide
-   #:title "Language-oriented programming"
-
-   }
-
-  ;; ----------------------------------------
-
-  {slide
    #:title "Overview"
    (item "Automatic differentiation algorithm")
    (item "Implementation by program tracing")
@@ -101,21 +99,114 @@
    (item "Other resources")
    }
 
+  ;; ----------------------------------------
+
+  {slide
+   #:title "Differentiation"
+   'next
+   (t "The best linear approximation of a function about a point (if it exists)")
+   'next
+   (para "Function" ($"f") "or" (code f))
+   (para "Derivative" ($"Df") "or" (code (D f)))
+   }
+
+
+  {slide
+   (plot (list
+          (function (λ (x) (sqrt x)) 0 10
+                    ; #:label "(sqrt x)"
+                    #:color "SkyBlue")
+          (function (λ (x) (+ (* 0.25 x) 1)) 0 10
+                    ; #:label "(* ((D sqrt) 4.0) x)"
+                    #:color "DarkViolet")))}
+
+  {slide
+   #:title "Differentiation"
+
+   (para "function" ($"f(x)"))
+   (para "find" ($"a") "with")
+   (para ($"f(x) - f(x_0) \\approx a\\,(x - x_0)"))
+   'next
+   (para ($"f(x) - f(x_0) = a\\,(x - x_0) + o(x - x_0)"))
+   'next
+   (para ($$"f(x) - f(x_0) = \\textcolor{red}{Df(x_0)} \\, (x - x_0) + o(x - x_0)"))
+   }
+
+  {slide
+   #:title "Differentiation"
+   (para "function" ($"f(x, y)"))
+   (para "find" ($"a, b") "with")
+   (para ($"f(x, y) - f(x_0, y_0) \\approx a\\,(x - x_0) + b\\,(y - y_0)"))
+   'next
+   (para ($$"f(x, y) - f(x_0, y_0) \\approx \\textcolor{red}{D_0f(x_0, y_0)} \\, (x - x_0) + \\textcolor{red}{D_1f(x_0, y_0)} \\, (y - y_0)"))
+   'next
+   ;; partial derivs
+   (para "Partial derivative" ($"D_if") "or" (code (partial i f)))
+
+   ;; TODO structures?
+   }
+
+  {slide
+   (code
+    (define ((partial i f) . xs)
+      (case f
+        (code:comment "...")
+        [(exp)      (case i
+                      [(0)   (exp (first xs))]
+                      [else  (err)])]
+        (code:comment "...")
+
+        [else (err)])))}
+
+  {slide
+   (code
+    (define ((partial i f) . xs)
+      (case f
+        (code:comment "...")
+        [(*)        (case i
+                      [(0)   (list-ref xs 1)]
+                      [(1)   (list-ref xs 0)]
+                      [else  (err)])]
+        (code:comment "...")
+
+        [else (err)])))}
+
+  {slide
+   #:title "Composition"
+   'next
+
+   ;; write this in maths too
+
+   (code
+    ([D (compose g f)] x)
+    = (* ([D g] (f x))
+         ([D f] x)))
+
+   'next
+   (para "really")
+   (code (compose ([D g] (f x))
+                  ([D f] x)))
+   (para "composition of linear maps => product of coefficients")
+   }
+
+  {slide
+   #:title "Composition"
+   (para ($"f(x,y) = g(u(x,y), v(x,y))"))
+   (para
+    (lt (string-join
+         '("\\begin{equation*}"
+           "\\begin{split}"
+           "Df(x,y) =\\\\"
+           "& D_0g(u(x,y),v(x,y)) \\, Du(x,y)\\\\"
+           " +\\; &D_1g(u(x,y),v(x,y)) \\, Dv(x,y)"
+           "\\end{split}"
+           "\\end{equation*}"))))
+   }
+
   {slide
    (para "Idea: every value returned by a program was computed by a"
          "sequence of arithmetic operations.")
    (para "Differentiate" (bt "that"))
-   }
-
-  {slide
-   #:title "composition"
-   (code
-    (compose g f)
-    (compose (D g (f x)) (D f x)))
-
-   (code (* (D g (f x)) (D f x)))
-
-
    }
 
   {slide
@@ -856,10 +947,6 @@
 ;;     #'(f x)))
 
 
-;;   (slide
-;;    (plot (list
-;;           (function (λ (x) (sqrt x)) 0 10 #:label "(sqrt x)")
-;;           (function (λ (x) (+ (* 0.25 x) 1)) 0 10 #:label "((derivative sqrt) x)"))))
 
 
 ;;   ; define a slide that, given a function, returns a slide with the plot, and it's derivative, like the above
