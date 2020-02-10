@@ -52,7 +52,20 @@
   ;; ----------------------------------------
 
   {slide
-   ;; Me/Turing Institute intro slide
+   (hc-append
+    (vl-append
+     (t "Oliver Strickson")
+     (t "Research Software Engineer")
+     (t "Research Engineering Group"))
+    (blank 200 0)
+    (scale-to-fit (bitmap "turing-logo.png")
+                  (* 0.3 client-w) (* 0.3 client-h))
+    )
+
+   (vl-append
+    (scale-to-fit (bitmap "british-library.jpg")
+                  (* 0.9 client-w) (* 0.5 client-h))
+    (small (t "Photo credit: https://commons.wikimedia.org/wiki/User:Patche99z")))
    }
 
   ;; ----------------------------------------
