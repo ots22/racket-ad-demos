@@ -490,6 +490,44 @@
    }
 
 
+
+  ;; ----------------------------------------
+
+  {slide
+   ;; language model
+   (code
+    (define #,(it "x") #,(it "E"))
+    ...
+    #,(blank 0 20)
+      #,(t "where")
+    #,(it "E") = (#,(it "op") #,(it "x") ...)
+    #,(ghost (it "E")) $ #,(it "c")
+    #,(it "x : symbol")
+    #,(it "c : numeric constant")
+    #,(it "op : primitive operation"))
+   }
+
+  {slide
+   (code
+    #,(it "M") = (define #,(it "x") #,(it "c"))
+    #,(ghost (it "M")) $ (define #,(it "x") #,(it "O"))
+    #,(ghost (it "M")) $ (define #,(it "x") #,(it "E"))
+    #,(ghost (it "M")) $ (define #,(hc-append (it "x") (subscript (it "0"))) (if #,(hc-append (it "x") (subscript (it "1"))) #,(hc-append (it "E") (subscript (it "0"))) #,(hc-append (it "E") (subscript (it "1")))))
+    #,(ghost (it "M")) $ (define (#,(it "x") ...) #,(it "M") ...)
+
+    #,(blank 0 20)
+      #,(t "where")
+    #,(it "O") = (#,(it "op") #,(it "x") ...)
+    #,(it "E") = (#,(hc-append (it "x") (subscript (it "0"))) #,(hc-append (it "x") (subscript (it "1"))) ...)
+    #,(it "x : symbol")
+    #,(it "c : numeric constant")
+    #,(it "op : primitive operation"))
+   }
+
+
+
+  ;; ----------------------------------------
+
   ;; functions-as-values too (need to extend trace)?
 
 
