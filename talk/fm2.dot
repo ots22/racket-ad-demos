@@ -1,0 +1,37 @@
+digraph G {
+    graph [dpi="300"]   
+    node [shape=square, fontsize="24", fontname="courier bold", fontcolor="blue4"]
+    edge [fontsize="24", fontname="courier bold", fontcolor="blue4"]
+
+    // dots1  [label="...", shape="none"]
+    // dots2  [label="...", shape="none"]
+
+    dx     [label="dx", shape="none", fontsize="32"]
+    dy     [label="dy", shape="none", fontsize="32"]
+    x      [label="x", shape="none"]
+    y      [label="y", shape="none"]
+    D0     [label="(D 0 op)", shape="rectangle"]
+    D1     [label="(D 1 op)", shape="rectangle"]
+    mul1   [label="*"]
+    mul2   [label="*"]
+    add1   [label="+"]
+    dz     [label="dz", shape="none", fontsize="32"]
+
+    // dots3  [label="...", shape="none"]
+    
+    dx -> x [style="invis"]
+    dy -> y [style="invis"]
+
+    //dots1 ->
+    dx -> mul1 -> add1
+    // dots2 ->
+    dy -> mul2 -> add1
+    x -> D0 -> mul1
+    y -> D0
+    x -> D1 -> mul2
+    y -> D1
+    add1 -> dz // -> dots3
+
+    {rank="same"; x; y}
+    {rank="same"; dx; dy}
+}

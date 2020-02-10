@@ -1,0 +1,74 @@
+digraph G {
+    graph [dpi="100"]
+    node [shape=square, fontsize="24", fontname="courier bold", fontcolor="blue4"]
+    edge [fontsize="24", fontname="courier bold", fontcolor="blue4", dir="back"]
+
+    x1     [label="x", shape="none", fontsize="22"]
+    y1     [label="y", shape="none", fontsize="22"]
+    x2     [label="x", shape="none", fontsize="22"]
+    y2     [label="y", shape="none", fontsize="22"]
+    
+    Ax    [label="Ax", shape="none", fontsize="28"]
+    i     [label="", shape="none"]
+    i2     [label="", shape="none"]
+    Ay    [label="Ay", shape="none", fontsize="28"]
+    xsum  [label="+"]
+    xdots [label="...", shape="none"]
+    // xmore [label="...", shape="none"]
+    ysum  [label="+"]
+    ydots [label="...", shape="none"]
+    // ymore [label="...", shape="none"]
+    xmul  [label="*"]
+    D0    [label="(D 0 op)", shape=rectangle]
+    ymul  [label="*"]
+    D1    [label="(D 1 op)", shape=rectangle]
+    
+    Az    [label="Az", shape="none", fontsize="28"]
+
+    // x1 -> D0 [dir="forward"]
+    // y1 -> D0 [dir="forward"]
+    // x2 -> D1 [dir="forward"]
+    // y2 -> D1 [dir="forward"]
+
+    D0 -> x1
+    D0 -> y1
+    D1 -> x2
+    D1 -> y2
+                  
+    Ax -> xsum -> xmul -> D0
+                  xmul -> Az
+    xsum -> xdots [style="dashed"]
+
+                  ymul -> Az
+    Ay -> ysum -> ymul -> D1
+
+
+    ysum -> ydots [style="dashed"]
+
+
+    Ax -> i -> Ay [style=invis]
+
+    // xdots -> x1 [style=invis]
+    // xdots -> y1 [style=invis]
+
+    //    ydots -> x2 [style=invis]
+    //  ydots -> y2 [style=invis]
+    
+    //    D0 -> D1 [style=invis]
+
+    x1 -> y1 [style=invis]
+    x2 -> y2 [style=invis]
+    
+    //    xmul -> ymul [style=invis]
+    // ymul -> xmul [style=invis]
+
+    xdots -> xmul -> i2 -> ymul -> ydots [style=invis]
+    
+    {rank="same"; Ax; Ay}
+    {rank="max"; Az}
+    {rank="same"; xsum; ysum}
+    {rank="same"; x1; y1}
+    {rank="same"; x2; y2}
+    {rank="same"; xmul; ymul; xdots; ydots; i2}
+
+}

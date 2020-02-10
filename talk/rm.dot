@@ -1,0 +1,25 @@
+digraph G {
+    graph [dpi="100"]
+    node [shape=square, fontsize="24", fontname="courier bold", fontcolor="blue4"]
+    edge [fontsize="24", fontname="courier bold", fontcolor="blue4", dir="back"]
+
+    Ax    [label="Ax", shape="none", fontsize="28"]
+    Ay    [label="Ay", shape="none", fontsize="28"]
+    xsum  [label="+"]
+    xdots [label="...", shape="none"]
+    // xmore [label="...", shape="none"]
+    ysum  [label="+"]
+    // ymore [label="...", shape="none"]
+    xmul   [label="scale", shape="rectangle"]
+    ymul   [label="scale", shape="rectangle"]
+    ydots [label="...", shape="none"]    
+
+    Az    [label="Az", shape="none", fontsize="28"]
+    
+    Ax -> xsum -> xmul -> Az
+    xsum -> xdots [style="dashed"]
+    // xsum -> xmore [style="dashed"]
+    Ay -> ysum -> ymul -> Az
+    ysum -> ydots [style="dashed"]
+    // ysum -> ymore [style="dashed"]
+}

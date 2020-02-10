@@ -1,0 +1,16 @@
+digraph G {
+    graph [dpi="300"]   
+    node [shape=square, fontsize="24", fontname="courier bold", fontcolor="blue4"]
+    edge [fontsize="24", fontname="courier bold", fontcolor="blue4"]
+
+    in1    [label="dx", shape="none"]
+    in2    [label="dy", shape="none"]
+    scale1 [label="scale", shape="rectangle"]
+    scale2 [label="scale", shape="rectangle"]
+    add1   [label="+"]
+    result [label="dz", shape="none"]
+    
+    in1 -> scale1 -> add1
+    in2 -> scale2 -> add1
+    add1 -> result
+}

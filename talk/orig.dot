@@ -1,0 +1,13 @@
+digraph G {
+    graph [dpi="300"]   
+    node [shape=square, fontsize="24", fontname="courier bold", fontcolor="blue4"]
+    edge [fontsize="24", fontname="courier bold", fontcolor="blue4"]
+
+    in1    [label="x", shape="none"]
+    in2    [label="y", shape="none"]
+    op     [label="op"]
+    result [label="z", shape="none"]
+    
+    in1 -> op -> result
+    in2 -> op
+}
