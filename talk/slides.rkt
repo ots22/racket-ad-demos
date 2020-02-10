@@ -531,6 +531,193 @@
   ;; functions-as-values too (need to extend trace)?
 
 
+  {slide
+   #:title "Dual numbers"
+   (para "Back to our sum-of-squares example:")
+   (para "Given" (code a) "and" (code b) #:align 'center)
+
+   'alts
+   (list
+    (list
+     (code c ← (* a a)
+           d ← (* b b)
+           e ← (+ c d))
+
+     'next
+
+     (t "The \"forward-mode\" transformation:")
+     (code
+      #,(D c) ← (+ (* a #,(D a)) (* #,(D a) a))
+      #,(D d) ← (+ (* b #,(D b)) (* #,(D b) b))
+      #,(D e) ← (+ #,(D c) #,(D d))))
+    (list
+     (para "Can interleve the operations computing" (it "x") "and" (D #,(it "x")))
+     (code
+      c ← (* a a)
+      #,(D c) ← (+ (* a #,(D a)) (* #,(D a) a))
+      d ← (* b b)
+      #,(D d) ← (+ (* b #,(D b)) (* #,(D b) b))
+      e ← (+ c d)
+      #,(D e) ← (+ #,(D c) #,(D d)))
+     (item (para (code #,(D x)) "depends on" (code #,(D y))
+                 "if and only if" (code x) "depends on" (code y)))
+     (item (para (code #,(D x)) "depends on" (code y)
+                 "only if" (code x) "depends on" (code y)))
+     ))
+   }
+
+  {slide
+   #:title "Dual numbers"
+   (para "Idea: treat the pair of" (code x) "and" (code #,(D x))
+         "as a single entity.  Define combined operations.") }
+
+  {slide
+   #:title "Dual numbers"
+   (code
+    (struct dual-number (p d) #:transparent))
+   'next
+   'alts
+   (list
+    (list
+     (code
+      (define (primal x)
+        (cond
+          [(dual-number? x) (dual-number-p x)]
+          [(number? x) x]
+          [else (raise-argument-error
+                 'primal "number? or dual-number?" x)]))))
+    (list
+     (code
+      (define (dual x)
+        (cond
+          [(dual-number? x) (dual-number-d x)]
+          [(number? x) (zero x)]
+          [else (raise-argument-error
+                 'dual "number? or dual-number?" x)])))))
+   }
+
+  (define dual-+-expr
+    (code (dual-number (+ (primal x) (primal y))
+                       (+ (dual x) (dual y)))))
+
+  (define dual-+-full
+    (code
+     (define (dual-+ x y)
+       (if (or (dual-number? x) (dual-number? y))
+           #,dual-+-expr
+           (+ x y)))))
+
+  (define (replace-within outer-pict outer-opacity
+                          inner-pict [replacement-pict inner-pict])
+    (let-values ([(dx dy) (lt-find outer-pict inner-pict)])
+      (panorama
+       (pin-over (cellophane outer-pict outer-opacity)
+                 dx dy
+                 replacement-pict))))
+
+  {slide
+   #:title "Dual numbers"
+   dual-+-full}
+
+  {slide
+   #:title "Dual numbers"
+   (replace-within dual-+-full 0.2 dual-+-expr)
+   }
+
+  (define dual-*-expr
+    (code
+     (dual-number (* (primal x) (primal y))
+                  (+ (* (dual x) (primal y))
+                     (* (primal x) (dual y))))))
+
+  (define dual-*-full
+    (code
+     (define (dual-* x y)
+       (if (or (dual-number? x) (dual-number? y))
+           #,dual-*-expr
+           (* x y)))))
+
+  {slide
+   #:title "Dual numbers"
+   dual-*-full
+   }
+
+  {slide
+   #:title "Dual numbers"
+   (replace-within dual-*-full 0.2 dual-*-expr)}
+
+
+  {slide
+   #:title "Dual numbers"
+   (para
+    (code
+     (code:comment "...")
+
+     (define (dual-log x)
+       (if (dual-number? x)
+           (dual-number (log (primal x))
+                        (/ (dual x) (primal x)))
+           (log x)))
+
+     (code:comment "...")))
+   }
+
+  {slide
+   #:title "Dual numbers"
+   (item (bt "only") "need to define the primitive numerical functions")
+   (item "Can be implemented with operator overloading")
+   (item "A" (bt "local") "program transformation")
+   }
+
+  (define i=n (code (= i n)))
+  (define dual-1 (code (dual-number a 1)))
+  (define dual-0 (code (dual-number a 0)))
+  (define get-dual-part-D (code (get-dual-part (apply f args*))))
+  (define dual-number-D-for/list
+    (code
+     (for/list [(i (in-naturals))
+                (a args)]
+       (if (= i n)
+           #,dual-1
+           #,dual-0))))
+
+  (define dual-number-D
+    (code
+     (define ((D n f) . args)
+       (let ([args* #,dual-number-D-for/list])
+         #,get-dual-part-D))))
+
+
+  {slide
+   #:title "Dual numbers: Differentiation"
+   'alts
+   (list
+    (list dual-number-D)
+    (list
+     ;(replace-within
+     (replace-within dual-number-D 0.2
+                     dual-number-D-for/list))
+    (list
+     (replace-within dual-number-D 0.2
+                     dual-1))
+    (list
+     (replace-within dual-number-D 0.2
+                     dual-0))
+    (list
+     (replace-within dual-number-D 0.2
+                     get-dual-part-D)))
+
+   'next
+   (para
+    "Helper function:"
+    (code
+     (get-dual-part
+      (list (dual-number 0.0 1.0)
+            2.0
+            (cons (dual-number 3.0 0.0)
+                  (dual-number 4.0 5.0)))))
+    "=>" (code (1.0 0.0 (0.0 . 5.0))))
+   }
 
   {slide
    (big (t "http://github.com/ots22/rackpropagator"))
