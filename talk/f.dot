@@ -1,0 +1,22 @@
+digraph G {
+    graph [dpi="300"]
+    node [shape=square, fontsize="24", fontname="courier bold", fontcolor="blue4"]
+    edge [fontsize="24", fontname="courier bold", fontcolor="blue4"]
+    in1 [label="a", shape="none"]
+    in2 [label="b", shape="none"]
+    mul1 [label="*"]
+    mul1res [label="c", shape="plaintext"]
+    mul2res [label="d", shape="plaintext"]
+    mul2 [label="*"]
+    add1 [label="+"]
+    result [label="e", shape="none"]
+    in1 -> mul1
+    in1 -> mul1
+    mul1 -> mul1res
+    in1 -> mul2
+    in2 -> mul2
+    mul2 -> mul2res
+    mul1res -> add1
+    mul2res -> add1
+    add1 -> result
+}

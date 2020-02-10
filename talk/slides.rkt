@@ -18,6 +18,7 @@
 \usepackage{amsmath}
 \usepackage{euler}
 \usepackage{xcolor}
+\newcommand{\dd}[2]{\tfrac{\mathsf{d}#1}{\mathsf{d}#2}}
 latex
                 )
   (define racket-logo (bitmap "racket-logo.png"))
@@ -41,7 +42,7 @@ latex
 
       (code-align (cc-superimpose rect stacked))))
 
-  (define-syntax-rule (D a) (hc-append (t "D") (code a)))
+  (define-syntax-rule (D a) (hc-append (code d) (code a)))
 
   (plot-font-size 24)
   (line-width 2.5)
@@ -203,106 +204,225 @@ latex
            "\\end{equation*}"))))
    }
 
+  (define f-graph
+    (scale-to-fit (bitmap "f.png") (* 0.6 client-w) (* 0.6 client-h)))
+
+  {slide
+   #:title "Arithmetic expressions"
+   (code
+    (define (f a b)
+      (+ (* a a) (* a b))))
+   'next
+   (ht-append
+    f-graph
+    (blank (* 0.1 client-w) 0)
+    (vc-append
+     (blank 0 30)
+     (code c ← (* a a)
+           d ← (* a b)
+           e ← (+ c d))))
+   }
+
+  (define (make-slide-fwd-ad n
+                             #:init-option [init-option 0]
+                             #:box-init? [box-init? #f])
+    (define final-expr
+      (case init-option
+        [(0) ($"D_0f(a,b) = \\dd{e}{r}")]
+        [(1) ($"D_1f(a,b) = \\dd{e}{r}")]))
+
+    (define init-expr
+      (case init-option
+        [(0) (vl-append (current-line-sep)
+                        (para ($"\\dd{a}{r} = 1") #:fill? #f)
+                        (para ($"\\dd{b}{r} = 0") #:fill? #f))]
+        [(1) (vl-append (current-line-sep)
+                        (para ($"\\dd{a}{r} = 0") #:fill? #f)
+                        (para ($"\\dd{b}{r} = 1") #:fill? #f))]))
+
+    (define (eqn-lines n)
+      (parameterize ([current-line-sep 20])
+        (apply
+         para
+         (take
+          (list
+           (vc-append
+            (blank 0 20)
+            ((if box-init? frame identity) init-expr))
+           (para ($"\\dd{c}{r} = D_0(*)(a,a)\\dd{a}{r} + D_1(*)(a,a)\\dd{a}{r}"))
+           (para ($"\\dd{d}{r} = D_0(*)(a,b)\\dd{a}{r} + D_1(*)(a,b)\\dd{b}{r}"))
+           (para ($"\\dd{e}{r} = D_0(+)(c,d)\\dd{c}{r} + D_1(+)(c,d)\\dd{d}{r}"))
+           final-expr
+           (para (bt "Forward mode") #:align 'center))
+          n))))
+
+    {slide
+     #:title "Automatic differentiation"
+     (para "Compute" ($"Df(a,b)"))
+     (ht-append
+      f-graph
+      (blank 20 (pict-height (eqn-lines 6)))
+      (eqn-lines n))})
+
+  (make-slide-fwd-ad 0)
+  (make-slide-fwd-ad 1)
+  (make-slide-fwd-ad 2)
+  (make-slide-fwd-ad 3)
+  (make-slide-fwd-ad 4)
+  (make-slide-fwd-ad 5)
+  (make-slide-fwd-ad 5 #:box-init? #t)
+  (make-slide-fwd-ad 5 #:box-init? #t #:init-option 1)
+  (make-slide-fwd-ad 6 #:init-option 1)
+
+  (define (make-slide-rev-ad n)
+
+    (define (eqn-lines n)
+      (parameterize ([current-line-sep 20])
+        (apply
+         para
+         (take
+          (list
+           (para ($"\\dd{s}{e} = 1"))
+           (para ($"\\dd{s}{d} = D_1(+)(c,d)\\dd{s}{e}"))
+           (para ($"\\dd{s}{c} = D_0(+)(c,d)\\dd{s}{e}"))
+           (para ($"\\dd{s}{b} = D_1(*)(a,b)\\dd{s}{d}"))
+           (para (lt "\\begin{equation*}
+\\begin{split}
+\\dd{s}{a} = D_0(*)(a,&a)\\dd{s}{c} + D_1(*)(a,a)\\dd{s}{c}\\\\
+&+\\; D_0(*)(a,b)\\dd{s}{d}
+\\end{split}
+\\end{equation*}
+"))
+           (para ($"Df(a,b) = \\left(\\dd{s}{a}, \\dd{s}{b}\\right)"))
+           (para (bt "Reverse mode") #:align 'center))
+          n))))
+
+    {slide
+     #:title "Automatic differentiation"
+
+     (para "Compute" ($"Df(a,b)"))
+     (ht-append
+      f-graph
+      (blank 20 (pict-height (eqn-lines 7)))
+      (eqn-lines n))
+
+     })
+
+  (make-slide-rev-ad 0)
+  (make-slide-rev-ad 1)
+  (make-slide-rev-ad 2)
+  (make-slide-rev-ad 3)
+  (make-slide-rev-ad 4)
+  (make-slide-rev-ad 5)
+  (make-slide-rev-ad 6)
+  (make-slide-rev-ad 7)
+
+  {slide
+   (para "Promise of AD is we can do more than simple arithmetic"
+         "expressions") }
+
+
+
   {slide
    (para "Idea: every value returned by a program was computed by a"
          "sequence of arithmetic operations.")
    (para "Differentiate" (bt "that"))
    }
 
-  {slide
-   #:title "Example: sum of squares"
+  ;; {slide
+  ;;  #:title "Example: sum of squares"
 
-   (code (define (sum-squares a b)
-           (+ (* a a) (* b b))))
+  ;;  (code (define (sum-squares a b)
+  ;;          (+ (* a a) (* b b))))
 
-   (para "Find D" (tt "sum-squares") #:align 'center)
-   }
+  ;;  (para "Find D" (tt "sum-squares") #:align 'center)
+  ;;  }
 
-  {slide
-   (t "Explicit assignments for each operation:")
+  ;; {slide
+  ;;  (t "Explicit assignments for each operation:")
 
-   (vc-append
-    (para (code a) "and" (code b) "given;" #:align 'center)
-    (code c ← (* a a)
-          d ← (* b b)
-          e ← (+ c d)))
-   }
+  ;;  (vc-append
+  ;;   (para (code a) "and" (code b) "given;" #:align 'center)
+  ;;   (code c ← (* a a)
+  ;;         d ← (* b b)
+  ;;         e ← (+ c d)))
+  ;;  }
 
-  (define (Dsum-squares a Da b Db) (+ (* 2 Da a) (* 2 Db b)))
+  ;; (define (Dsum-squares a Da b Db) (+ (* 2 Da a) (* 2 Db b)))
 
-  {slide
-   #:title "Example: sum of squares"
+  ;; {slide
+  ;;  #:title "Example: sum of squares"
 
-   (code c ← (* a a)
-         d ← (* b b)
-         e ← (+ c d))
-   'next
-   (code
-    #,(D c) ← (+ (* a #,(D a)) (* #,(D a) a))
-    #,(D d) ← (+ (* b #,(D b)) (* #,(D b) b))
-    #,(D e) ← (+ #,(D c) #,(D d)))
+  ;;  (code c ← (* a a)
+  ;;        d ← (* b b)
+  ;;        e ← (+ c d))
+  ;;  'next
+  ;;  (code
+  ;;   #,(D c) ← (+ (* a #,(D a)) (* #,(D a) a))
+  ;;   #,(D d) ← (+ (* b #,(D b)) (* #,(D b) b))
+  ;;   #,(D e) ← (+ #,(D c) #,(D d)))
 
-   ;; result is a linear function of a and b to a single number
-   'next
-   'alts
-   (list
-    (list
-     (code
-      #,(D a) ← 1
-      #,(D b) ← 0))
+  ;;  ;; result is a linear function of a and b to a single number
+  ;;  'next
+  ;;  'alts
+  ;;  (list
+  ;;   (list
+  ;;    (code
+  ;;     #,(D a) ← 1
+  ;;     #,(D b) ← 0))
 
-    (list
-     (code
-      #,(D a) ← 0
-      #,(D b) ← 1
-      ))
+  ;;   (list
+  ;;    (code
+  ;;     #,(D a) ← 0
+  ;;     #,(D b) ← 1
+  ;;     ))
 
-    (list
-     (code
-      #,(D a) ← 1
-      #,(D b) ← 0)
-     (code a ← 3
-           b ← 4)
-     (code (6 #,(ghost (code 8)))))
+  ;;   (list
+  ;;    (code
+  ;;     #,(D a) ← 1
+  ;;     #,(D b) ← 0)
+  ;;    (code a ← 3
+  ;;          b ← 4)
+  ;;    (code (6 #,(ghost (code 8)))))
 
-    (list
-     (code
-      #,(D a) ← 0
-      #,(D b) ← 1)
-     (code a ← 3
-           b ← 4)
-     (code (6 8))))
+  ;;   (list
+  ;;    (code
+  ;;     #,(D a) ← 0
+  ;;     #,(D b) ← 1)
+  ;;    (code a ← 3
+  ;;          b ← 4)
+  ;;    (code (6 8))))
 
-   }
+  ;;  }
 
-  ;; dw/dw
+  ;; ;; dw/dw
 
-  ;; dw/dy
-
-
-  ;; reverse mode
-  {slide
-   #:title "Example: sum of squares"
-
-   (code c ← (* a a)
-         d ← (* b b)
-         e ← (+ c d))
-   'next
-   ;; (code
-   ;;  #,(A d) ← #,(A e
-   ;;  #,(A c) ←
-   ;;  #,(A b) ←
-   ;;  #,(A a) ←
-
-   }
-
-  ;; more examples ...
+  ;; ;; dw/dy
 
 
-  ;; forward and backwards ...
+  ;; ;; reverse mode
+  ;; {slide
+  ;;  #:title "Example: sum of squares"
+
+  ;;  (code c ← (* a a)
+  ;;        d ← (* b b)
+  ;;        e ← (+ c d))
+  ;;  'next
+  ;;  ;; (code
+  ;;  ;;  #,(A d) ← #,(A e
+  ;;  ;;  #,(A c) ←
+  ;;  ;;  #,(A b) ←
+  ;;  ;;  #,(A a) ←
+
+  ;;  }
+
+  ;; ;; more examples ...
 
 
-  ;; more general explanation ...
+  ;; ;; forward and backwards ...
+
+
+  ;; ;; more general explanation ...
 
 
 
