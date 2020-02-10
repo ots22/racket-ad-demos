@@ -219,7 +219,7 @@
    #:title "Tracing program execution"
 
    (para "We want to make a particular type of trace, which is:")
-   (item (para "flat"))
+   (item (para "flat but topologically sorted"))
    (item (para "contains only" (it "primitive operations")))
    }
 
