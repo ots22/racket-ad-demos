@@ -1,6 +1,7 @@
 #lang slideshow
 
 (require plot/pict
+         pict/color
          slideshow/code
          slideshow/text
          ;scribble/eval
@@ -93,14 +94,15 @@ latex
 
   ;; ----------------------------------------
 
-  {slide
-   #:title "Introduction"
-   }
+;  {slide
+;   #:title "Introduction"
+;   }
 
   ;; ----------------------------------------
 
   {slide
    #:title "Overview"
+   (item "Differentiation")
    (item "Automatic differentiation algorithm")
    (item "Implementation by program tracing")
    (item "Implementation by program transformation")
@@ -395,9 +397,9 @@ latex
    }
 
   {slide
-   (para "Idea: every value returned by a program was computed as a"
-         "sequence of arithmetic operations.")
-   (para "Differentiate" (bt "that"))
+   (para "Idea: every value returned by a program was determined from a"
+         "particular (dynamic) computational graph.")
+   (para "Differentiate" (it "that"))
    }
 
   ;; {slide
@@ -501,7 +503,8 @@ latex
    #:title "Tracing program execution"
 
    (para "We want to make a particular type of trace, which is:")
-   (item (para "flat but topologically sorted"))
+   (item (para "flat"))
+   (item (para "topologically sorted"))
    (item (para "contains only" (it "primitive operations")))
    }
 
@@ -769,7 +772,7 @@ latex
    }
 
   {slide
-   (t "(try it!)")
+   (t "try it!")
    }
 
   {slide
@@ -791,15 +794,17 @@ latex
   (define D/f-indep-ids   (code [indep-ids (map top-id xs)]))
   (define D/f-result      (code [result    (apply f xs)]))
   (define D/f-fold-init   (code ([tr result]
-                                 [deriv-map (hash)])))
+                                 [deriv-dict (hash)])))
   (define D/f-trace-items (code [z (reverse (trace-items result))]))
   (define D/f-fold-values (code {values
                                  (trace-append dz tr)
-                                 (hash-set deriv-map
+                                 (hash-set deriv-dict
                                            (id z) (top-id dz))}))
   (define D/f-for/fold    (code for/fold))
-  (define D/f-let-dz      (code let ([dz (D/f-prim-op z x indep-ids
-                                                      tr deriv-map)])))
+
+  (define D/f-prim-op-call (code (D/f-prim-op z x indep-ids
+                                              tr deriv-dict)))
+  (define D/f-let-dz      (code let ([dz #,D/f-prim-op-call])))
   (define D/f-fold        (code (#,D/f-for/fold #,D/f-fold-init
                                           (#,D/f-trace-items)
                                  (#,D/f-let-dz
@@ -847,22 +852,368 @@ latex
                          D/f-trace-items
                          D/f-let-dz
                          D/f-fold-values
-                         D/f-prune-result)])
+                         D/f-prune-result
+                         D/f-prim-op-call)])
       {slide
        #:title "Forward-mode AD"
        (replace-within D/f-full 0.2
                        highlight)})
 
 
+  ;; z x indep-ids tr deriv-dict
+
+  ;; (define D/f-prim-op-cond-body
+  ;;   (code
+  ;;    [(eq? (id z) x-symb) (datum . 1.0)]
+  ;;    [(memq (id z) indep-ids) (datum . 0.0)]
+  ;;    [else
+  ;;     (match (expr z)
+  ;;       [(list 'constant '())  (datum . ())]
+  ;;       [(list 'constant c)    (datum . 0.0)]
+  ;;       [(list 'app 'cons x y) (cons& (d x) (d y))]
+  ;;       [(list 'app 'car ls)   (car& (d ls))]
+  ;;       [(list 'app 'cdr ls)   (cdr& (d ls))]
+  ;;       [(list 'app op xs ...)
+  ;;        (let ([xs& (map I xs)])
+  ;;          (for/fold ([acc (datum . 0.0)])
+  ;;                    ([x xs]
+  ;;                     [i (in-naturals)])
+  ;;            (define #,(tt "D_i_op") (apply partial i op xs&))
+  ;;            (+& (*& #,(tt "D_i_op") (d x)) acc)))])]))
+
   {slide
-   (t "TODO: D/f-prim-op ?")}
+   (code
+    (code:comment "D/f-prim-op: assignment? symbol? (Listof symbol?)")
+    (code:comment "  trace? (HashTable symbol? symbol?) -> trace?")
+    (define (D/f-prim-op z x-symb indep-ids
+                         tr deriv-dict)
+      #,(para)
+      (code:comment "I : symbol? -> trace?")
+      (define (I s) (trace-get s tr))
+      #,(blank 0 (* 0.2 (current-line-sep)))
+      (code:comment "d : symbol? -> trace?")
+      (define (d s) (I (hash-ref deriv-dict s)))
+      #,(para)
+      (cond
+        (code:comment "...")
+        ; #,D/f-prim-op-cond-body
+        )))
+   }
+
+  {slide
+   (code
+    (code:comment "...")
+    (cond
+      [(eq? (id z) x-symb) (datum . 1.0)]
+      [(memq (id z) indep-ids) (datum . 0.0)]
+      [else
+       (match (expr z)
+         (code:comment "...")
+         )]))
+   }
+
+  {slide
+   (code
+    (code:comment "...")
+    (match (expr z)
+      [(list 'constant '())  (datum . null)]
+      [(list 'constant c)    (datum . 0.0)]
+      (code:comment "...")
+      ))}
+
+  {slide
+   (code
+    (code:comment "...")
+    (match (expr z)
+      (code:comment "...")
+      [(list 'app op xs ...)
+       (let ([xs& (map I xs)])
+         (for/fold ([acc (datum . 0.0)])
+                   ([x xs]
+                    [i (in-naturals)])
+           (define #,(tt "D_i_op") (apply partial i op xs&))
+           (+& (*& #,(tt "D_i_op") (d x)) acc)))]
+      ))}
+
+  {slide
+   (code
+    (code:comment "...")
+    (match (expr z)
+      (code:comment "...")
+      [(list 'app 'cons x y) (cons& (d x) (d y))]
+      [(list 'app 'car ls)   (car&  (d ls))]
+      [(list 'app 'cdr ls)   (cdr&  (d ls))]
+      (code:comment "...")))}
+
+  {slide
+   (scale/improve-new-text
+    (para
+     (code (cons 'a 'b) => (a . b))
+     (code (cons 'a null) => (a))
+     (code (cons 'a (cons 'b null)) => (a b))
+     (code (list 'a 'b) => (a b)))
+    1.2)
+   }
+
+  {slide
+   (scale/improve-new-text
+    (para
+     (code (cons 'a 'b) => (a . b))
+     (code (car (cons 'a 'b)) => 'a)
+     (code (cdr (cons 'a 'b)) => 'b))
+    1.3)
+   }
+
+  {slide
+   (scale/improve-new-text
+    (code   ((D cons) (f x) (g y))
+          = (cons ((D f) x) ((D g) y)))
+    1.3)
+   }
+
+  {slide
+   (scale/improve-new-text
+    (code   ((D car) (cons (f x) (g y)))
+          = ((D f) x))
+    1.3)
+   }
+
+  {slide
+   (scale/improve-new-text
+    (code   ((D cdr) (cons (f x) (g y)))
+          = ((D g) y))
+    1.3)
+    }
+
+  {slide
+   (t "try it!")}
+
+
 
   ;; ----------------------------------------
   ;; Reverse-mode transformation
 
   {slide
-   #:title "Reverse-mode AD"
-   (t "TODO")
+   #:title "Recap: Reverse-mode AD"
+   (hc-append
+    (scale-to-fit (bitmap "images/orig.png")
+                  (* 0.45 client-w) (* 0.5 client-h))
+    (blank (* 0.05 client-w))
+    (arrow 30 0)
+    (blank (* 0.05 client-w))
+    (cc-superimpose rev-mode-graph-2 (ghost rev-mode-graph)))
+   }
+
+  (define A/r-Aw-terms
+    (code
+     (define Aw-terms
+       (for/list ([k (hash-ref adjoint-terms (id w))])
+         (trace-get k tr)))))
+
+  (define A/r-Aw
+    (code
+     (define Aw
+       (trace-append
+        (foldl cons-add (car Aw-terms) (cdr Aw-terms))
+        tr))))
+
+  (define A/r-A/r-prim-op
+    (code (define-values (tr* adjoint-terms*)
+            (A/r-prim-op w Aw adjoint-terms))))
+
+  (define A/r-values
+    (code
+     {values tr*
+             adjoint-terms*
+             (hash-set adjoints (id w) (top-id Aw))}))
+
+  (define A/r-loop-body
+    (code
+     #,A/r-Aw-terms
+
+     #,(blank 0 (* 0.5 (current-line-sep)))
+
+     #,A/r-Aw
+
+     #,(blank 0 (* 0.5 (current-line-sep)))
+
+     #,A/r-A/r-prim-op
+
+     #,(blank 0 (* 0.5 (current-line-sep)))
+
+     #,A/r-values
+     ))
+
+
+  (define A/r-last-step
+    (code
+     (let* ([tr* (trace-add
+                  tr
+                  (make-assignment #:val 0.0))]
+            [zero-id (top-id tr*)])
+       (trace-prune
+        (apply
+         list&
+         (for/list ([x indep-ids])
+           (trace-get
+            (hash-ref adjoints x zero-id)
+            tr*)))))))
+
+  (define A/r-for/fold-iter
+    (code
+     [w (trace-items result-tr)]))
+
+  (define A/r-for/fold-accs
+    (code
+     [tr seed-tr]
+     [adjoint-terms
+      (hash seed-id
+            (list (top-id seed-tr)))]
+     [adjoints (hash)]))
+
+  (define A/r-outline
+    (code
+     (define (A/r result-tr indep-ids s)
+       (define seed-id (top-id result-tr))
+       (define seed-tr (trace-append s result-tr))
+       #,(blank 0 (* 0.5 (current-line-sep)))
+       (define-values (tr _ adjoints)
+         (for/fold (#,A/r-for/fold-accs)
+                   #,(blank 0 (* 0.5 (current-line-sep)))
+                   (#,A/r-for/fold-iter)
+           #,(blank 0 (* 0.5 (current-line-sep)))
+           (code:comment "...")
+           ))
+       (code:comment "...")
+       )))
+
+  {slide
+   A/r-outline}
+
+  {slide
+   (code
+    (for/fold ([sum 0]
+               [prod 1])
+              ([x (range 1 6)])
+      (values (+ x sum)
+              (* x prod)))
+    =>
+    15
+    120)
+   }
+
+  {slide
+   (replace-within A/r-outline 0.2
+                   A/r-for/fold-iter)
+   }
+
+  {slide
+   (replace-within A/r-outline 0.2
+                   A/r-for/fold-accs)
+   }
+
+  (define A/r-loop
+    (code
+     (for/fold (...)
+               ([w (trace-items result-tr)])
+       #,A/r-loop-body
+       )))
+
+  {slide
+   A/r-loop
+   }
+
+  (for/list ([code-part (list A/r-Aw-terms
+                              A/r-Aw
+                              A/r-A/r-prim-op
+                              A/r-values)])
+    {slide
+     (replace-within A/r-loop 0.2
+                     code-part)
+     })
+
+  {slide
+   (code
+    (code:comment "...")
+    #,A/r-last-step)
+   }
+
+  {slide
+   (code
+    w ← (cons x y))
+   (para (tt "=>"))
+   (code
+    Ax ← (car Aw)
+    Ay ← (cdr Aw))
+   }
+
+  {slide
+   (code
+    w ← (car xs))
+   (para (tt "=>"))
+   (code
+    (car Axs) ← Aw)}
+
+
+  {slide
+   (code
+    w ← (cdr xs))
+   (para (tt "=>"))
+   (code
+    (cdr Axs) ← Aw)}
+
+  {slide
+   (code
+    w ← (car xs))
+   (para (tt "=>"))
+   (code
+    Axs ← (cons Aw (cons-zero (cdr xs))))}
+
+  {slide
+   (code
+    w ← (cdr xs))
+   (para (tt "=>"))
+   (code
+    Axs ← (cons (cons-zero (car xs)) Aw))
+   }
+
+  ;; A/r-prim-op
+  ;; {slide
+  ;;  (code
+  ;;   (define (A/r-prim-op w Aw adjoint-terms)
+  ;;     #,(para)
+  ;;     (match (expr w)
+  ;;       (code:comment "...")
+  ;;       [(list 'app 'cons x y)
+  ;;        (let ([Ax (car& Aw)]
+  ;;              [Ay (cdr& Aw)])
+  ;;          {values (trace-append Ay Ax Aw)
+  ;;                  (upd-adj adjoint-terms
+  ;;                           x Ax
+  ;;                           y Ay)})]
+  ;;       (code:comment "...")
+  ;;       )))
+  ;;  }
+
+  ;; {slide
+  ;;  (code
+  ;;   (define (A/r-prim-op w Aw adjoint-terms)
+  ;;     #,(para)
+  ;;     (match (expr w)
+  ;;       (code:comment "...")
+  ;;       [(list 'app 'cons x y)
+  ;;        (let ([Ax (car& Aw)]
+  ;;              [Ay (cdr& Aw)])
+  ;;          {values (trace-append Ay Ax Aw)
+  ;;                  (upd-adj adjoint-terms
+  ;;                           x Ax
+  ;;                           y Ay)})]
+  ;;       (code:comment "...")
+  ;;       )))
+  ;;  }
+
+  {slide
+   (t "try it!")
    }
 
   ;; ----------------------------------------
@@ -1145,6 +1496,10 @@ latex
    }
 
   {slide
+   (t "try it!")
+   }
+
+  {slide
    (big (t "http://github.com/ots22/rackpropagator"))
    }
 
@@ -1201,6 +1556,12 @@ latex
 
   {slide
    #:title "References"
+
+   (cite "website"
+         #:title "autodiff.org: Community Portal for Automatic Differentiation"
+         #:url "http://www.autodiff.org/"
+         #:authors "")
+
    (cite "book"
          #:title "Beautiful Racket: an introduction to language-oriented programming using Racket, v1.6"
          #:authors "Matthew Butterick"
