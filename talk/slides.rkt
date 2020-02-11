@@ -65,6 +65,7 @@ latex
    (titlet "with Racket")
    (t "Oliver Strickson")
    (t "2020-02-14")
+   (t "Kraków")
 
    (hc-append
     (scale-to-fit racket-logo frac-client-h)
@@ -102,10 +103,10 @@ latex
    #:title "Overview"
    (item "Automatic differentiation algorithm")
    (item "Implementation by program tracing")
-   (item "Program transformation")
+   (item "Implementation by program transformation")
    (item "Local program transformation: Dual numbers")
-   (item "Local program transformation: Continuations")
-   (item "Other resources")
+   ;; (item "Local program transformation: Continuations")
+   (item "Resources")
    }
 
   ;; ----------------------------------------
@@ -113,7 +114,7 @@ latex
   {slide
    #:title "Differentiation"
    'next
-   (t "The best linear approximation of a function about a point (if it exists)")
+   (t "The best linear approximation to a function about a point (if it exists)")
    'next
    (para "Function" ($"f") "or" (code f))
    (para "Derivative" ($"Df") "or" (code (D f)))
@@ -151,6 +152,8 @@ latex
    'next
    ;; partial derivs
    (para "Partial derivative" ($"D_if") "or" (code (partial i f)))
+   'next
+   (para ($"Df(x,y) = (D_0f(x,y), D_1f(x,y))"))
 
    ;; TODO structures?
    }
@@ -191,11 +194,11 @@ latex
     = (* ([D g] (f x))
          ([D f] x)))
 
-   'next
-   (para "really")
-   (code (compose ([D g] (f x))
-                  ([D f] x)))
-   (para "composition of linear maps => product of coefficients")
+   ;; 'next
+   ;; (para "really")
+   ;; (code (compose ([D g] (f x))
+   ;;                ([D f] x)))
+   ;; (para "composition of linear maps => product of coefficients")
    }
 
   {slide
@@ -392,11 +395,7 @@ latex
    }
 
   {slide
-   (para "Promise of AD is we can do more than simple arithmetic"
-         "expressions") }
-
-  {slide
-   (para "Idea: every value returned by a program was computed by a"
+   (para "Idea: every value returned by a program was computed as a"
          "sequence of arithmetic operations.")
    (para "Differentiate" (bt "that"))
    }
@@ -769,14 +768,9 @@ latex
     (tt "=> %1 | (constant 1) | 1"))
    }
 
-  ;; ...
-
   {slide
-   ;; recap when we've finished the trace, and demonstrate it in a
-   ;; repl a few times, without, then with trace-show
-   (t "(try it)")
+   (t "(try it!)")
    }
-
 
   {slide
    #:title "Recap: Forward-mode AD"
@@ -863,6 +857,71 @@ latex
   {slide
    (t "TODO: D/f-prim-op ?")}
 
+  ;; ----------------------------------------
+  ;; Reverse-mode transformation
+
+  {slide
+   #:title "Reverse-mode AD"
+   (t "TODO")
+   }
+
+  ;; ----------------------------------------
+  ;; program transformation
+
+  {slide
+   #:title "Program transformation"
+   (para "Can apply the previous work to straight-line code, at compile time")
+   (para (code define) "instead of" (code assignment))
+   }
+
+  {slide
+   #:title "Program transformation"
+   (ht-append
+    (vl-append
+     (tt "#lang rackpropagator/⬋ ")
+     (tt "  straightline")
+     (hb-append
+      (code
+       (define (f x y)
+         (define a (+ x y))
+         (define b (+ a a))
+         (define c (* a y))
+         (define d 1.0)
+         (+ c d)))
+      (arrow 30 0)))
+    (code
+     (define (Df x y)
+       (define a (+ x y))
+       (define %2 1.0)
+       (define %3 1.0)
+       (define %4 (* %2 %3))
+       (define %7 (* %4 y))
+       (define %8 (* %4 a))
+       (define %9 1.0)
+       (define %10 (* %7 %9))
+       (define %11 1.0)
+       (define %12 (* %7 %11))
+       (define %17 (+ %8 %12))
+       (define %19 '())
+       (define %20 (cons %17 %19))
+       (cons %10 %20))))
+   }
+
+  {slide
+   #:title "Program transformation"
+   (code
+    (define-syntax (define/d stx)
+      (syntax-case stx ()
+        [(_ (f args ...) body ...)
+         (with-syntax
+           ([(body* ...)
+             (handle-assignments #'(args ...)
+                                 #'(body ...))])
+           #'(define (f args ...)
+               body* ...))])))
+   'next
+   (code (provide (rename-out [define/d define])))
+   }
 
   ;; ----------------------------------------
 
@@ -906,12 +965,13 @@ latex
 
   {slide
    #:title "Dual numbers"
-   (para "Back to our sum-of-squares example:")
-   (para "Given" (code a) "and" (code b) #:align 'center)
-
+   'next
+   (para "sum-of-squares:")
    'alts
    (list
     (list
+     (para "Given" (code a) "and" (code b) #:align 'center)
+
      (code c ← (* a a)
            d ← (* b b)
            e ← (+ c d))
@@ -1140,18 +1200,13 @@ latex
    }
 
   {slide
-   #:title "Software"
-   (item "DiffSharp")
-   (item "qobi")
-   }
+   #:title "References"
+   (cite "book"
+         #:title "Beautiful Racket: an introduction to language-oriented programming using Racket, v1.6"
+         #:authors "Matthew Butterick"
+         #:url "https://beautifulracket.com/")}
 
-  ;; {slide
-  ;;  ;; AD projects
-  ;;  }
-
-
-
-  (start-at-recent-slide)
+  ;(start-at-recent-slide)
   (set-page-numbers-visible! #t)
 
 
