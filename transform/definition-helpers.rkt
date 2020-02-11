@@ -156,7 +156,7 @@
       [exp (with-syntax ([(g1 g2 g3 g4) (generate-temporaries (range 4))]
                          [x (car xs)])
              (list #'(define g1 (exp x))
-                   #'(define g2 (* s g1))
+                   #'(define g2 (* s* g1))
                    #'(define g3 null)
                    #'(define g4 (cons g2 g3))))]
       )))
