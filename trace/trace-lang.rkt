@@ -3,6 +3,8 @@
 (require "trace.rkt"
          "trace-core.rkt")
 
+(define one 1)
+
 (provide #%app
          #%module-begin
          #%top
@@ -39,7 +41,7 @@
          (rename-out (not& not))
          
          and
-
+         
          trace-display
 
          lambda

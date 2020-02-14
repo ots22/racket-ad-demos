@@ -45,7 +45,7 @@
   ;;   (display-trace+terms tr tab))
 
   (for ([x 
-         (D/r (list #'(define a 1)
+         (A/r (list #'(define a 1)
                     #'(define b 2)
                     #'(define c (* a b))
                     #'(define x (* c c)))

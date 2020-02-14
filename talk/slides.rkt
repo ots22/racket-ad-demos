@@ -4,11 +4,8 @@
          pict/color
          slideshow/code
          slideshow/text
-         ;scribble/eval
          slideshow/repl
-         ;rsvg
-         slideshow/latex
-)
+         slideshow/latex)
 
 (module+ slideshow
 

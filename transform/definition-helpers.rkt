@@ -2,7 +2,7 @@
 
 (provide (for-syntax dfn-build)
          (for-syntax adjoint-trace+terms)
-         (for-syntax D/r)
+         (for-syntax A/r)
          
          define/d
          define
@@ -215,7 +215,7 @@
             
     )
 
-(define-for-syntax (D/r result-tr indep-ids s)
+(define-for-syntax (A/r result-tr indep-ids s)
   (define seed-id (last-id result-tr))
   (define seed-tr (append result-tr s))
 
@@ -290,13 +290,13 @@
   )
 
 (define-for-syntax (handle-assignments s args body)
-  (D/r (syntax-e body) (syntax-e args)
+  (A/r (syntax-e body) (syntax-e args)
        (with-syntax ([s s])
          (list #'(define s 1.0)))))
 
 (define-syntax (define/d stx)
   (syntax-case stx ()
-    [(_ (f args ...) Jf body ... body-final)
+    [(_ (f args ...) Df body ... body-final)
      (with-syntax* ([tmp (generate-temporary)]
                     [s (generate-temporary "s")]
                     [body-final-dfn #'(define tmp body-final)]
@@ -309,6 +309,6 @@
            (define (f args ...)
              body ... body-final)
 
-           (define (Jf s args ...)
+           (define (Df s args ...)
              body* ... body*-final-expr
              )))]))

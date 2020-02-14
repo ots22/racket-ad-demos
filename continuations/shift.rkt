@@ -7,8 +7,8 @@
 
 (require racket/control)
 
-(require "../forward/dual-number.rkt")
-(require "../forward/main.rkt")
+(require "../dual-numbers/dual-number.rkt")
+(require "../dual-numbers/main.rkt")
 
 ;; more operations over dual numbers
 

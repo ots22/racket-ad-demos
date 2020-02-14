@@ -1,9 +1,9 @@
 #lang racket
 
-(provide (rename-out (D/f& D/f))
-         D/r
-         J/f
-         J/r)
+(provide (rename-out (partial/f& partial/f))
+         A/r
+         D/f
+         D/r)
 
 (require "util.rkt"
          "trace.rkt"
@@ -164,8 +164,8 @@ jumps/calls, and is Turing complete.
 ;; The i'th partial derivative of f, evaluated as xs, computed by
 ;; forward accumulation
 ;;
-;; D/f : integer? (trace? ... -> trace?) -> trace? ... -> trace?
-(define ((D/f i f) . xs)
+;; partial/f : integer? (trace? ... -> trace?) -> trace? ... -> trace?
+(define ((partial/f i f) . xs)
   (let* ([var       (top-id (list-ref xs i))]
          [indep-ids (map top-id xs)]
          [result    (apply f xs)])
@@ -179,17 +179,17 @@ jumps/calls, and is Turing complete.
            (hash-set deriv-map (id a) (top-id Da))})))
     (trace-prune Dresult)))
 
-;; The operator D/f, for providing to the tracing lang
+;; The operator partial/f, for providing to the tracing lang
 ;;
 ;; D& : trace? (trace? ... -> trace?) -> trace? ... -> trace?
-(define (D/f& i f) (D/f (top-val i) f))
+(define (partial/f& i f) (partial/f (top-val i) f))
 
 ;; The Jacobian of f at xs, computed by forward accumulation
 ;;
-;; J/f : (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define ((J/f f) . xs)
+;; D/f : (trace? ... -> trace?) -> (Listof trace?) -> trace?
+(define ((D/f f) . xs)
   (let* ([n (length xs)]
-         [Di (for/list ([i (range n)]) (apply (D/f i f) xs))])
+         [Di (for/list ([i (range n)]) (apply (partial/f i f) xs))])
     (apply list& Di)))
 
 ;; ----------------------------------------
@@ -285,8 +285,8 @@ to record it anywhere globally.
                    (upd-adj adjoint-terms #:key top-id x Ax)})))]
     ))
 
-;; A helper for J/r. It is not provided by the module. It has a
-;; different interface to D/f.
+;; A helper for D/r. It is not provided by the module. It has a
+;; different interface to partial/f.
 ;;
 ;; result-tr : the trace of the result
 ;; indep-ids : the variables with respect to which we are
@@ -296,8 +296,8 @@ to record it anywhere globally.
 ;;             certainly have a '1' in one position, and zeros
 ;;             elsewhere.
 ;;
-;; D/r : trace? (Listof symbol?) trace? -> trace?
-(define (D/r result-tr indep-ids s)
+;; A/r : trace? (Listof symbol?) trace? -> trace?
+(define (A/r result-tr indep-ids s)
   (define seed-id (top-id result-tr))
   (define seed-tr (trace-append s result-tr))
 
@@ -357,15 +357,15 @@ to record it anywhere globally.
 ;; The Jacobian of f at xs, computed by reverse accumulation
 ;;
 ;;
-;; J/r : (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define ((J/r f) . xs)
+;; D/r : (trace? ... -> trace?) -> (Listof trace?) -> trace?
+(define ((D/r f) . xs)
   (let* ([indep-ids (map top-id xs)]
          [result-tr (apply f xs)]
          [result (top-val result-tr)]
          [result-flat (flatten result)]
          [n (length result-flat)])
     ;; flatten the result, seed each element in turn, reshape back to
-    ;; have the same shape as the result, then call D/r.  Accumulate
+    ;; have the same shape as the result, then call A/r.  Accumulate
     ;; into a list, then reshape back to have the shape of result.
     ;; Finally, convert cons of traces to trace of conses
     (cons->trace
@@ -375,4 +375,4 @@ to record it anywhere globally.
                           (reshape result
                                    (map exact->inexact
                                         (ind-list n i))))])
-                  (D/r result-tr indep-ids s)))))))
+                  (A/r result-tr indep-ids s)))))))

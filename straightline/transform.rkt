@@ -117,10 +117,10 @@
 
          [seed-tr (make-trace (make-assignment #:val 1))]
 
-         [D-tr (trace-filter-out arg-ids
-                                 (D/r (trace-prune tr) arg-ids seed-tr))])
+         [A-tr (trace-filter-out arg-ids
+                                 (A/r (trace-prune tr) arg-ids seed-tr))])
 
-    (trace->defs D-tr args body)))
+    (trace->defs A-tr args body)))
 
 
 (define-syntax (define/d stx)

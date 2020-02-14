@@ -74,7 +74,7 @@
       x
     (set! x (+ x 1))))
 
-(define (next-name) (syntax->datum (generate-temporary "%")))
+(define (next-name) (syntax->datum (generate-temporary "t")))
 
 ;; syntax-reverse : syntax? -> syntax?
 ;;
