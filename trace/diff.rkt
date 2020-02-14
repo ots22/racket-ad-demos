@@ -177,7 +177,7 @@ jumps/calls, and is Turing complete.
           {values
            (trace-append Da tr)
            (hash-set deriv-map (id a) (top-id Da))})))
-    (trace-prune Dresult)))
+    (trace-prune (trace-remove-duplicates Dresult))))
 
 ;; The operator partial/f, for providing to the tracing lang
 ;;

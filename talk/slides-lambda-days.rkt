@@ -890,9 +890,7 @@ latex
               #,D/f-result)
 
           (define-values (Dresult _)
-            #,D/f-fold)
-
-          #,D/f-prune-result)))))
+            #,D/f-fold))))))
 
   {slide
    #:title "Forward-mode AD"
@@ -922,7 +920,7 @@ latex
                          D/f-trace-items
                          D/f-let-dz
                          D/f-fold-values
-                         D/f-prune-result
+                         ;;D/f-prune-result
                          D/f-prim-op-call)])
       {slide
        #:title "Forward-mode AD"
@@ -962,7 +960,7 @@ latex
    (code
     (code:comment "...")
     (match (expr z)
-      [(list 'constant '())  (datum& . null)]
+      [(list 'constant null)  (datum& . null)]
       [(list 'constant c)    (datum& . 0.0)]
       (code:comment "...")
       ))}

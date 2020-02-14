@@ -1,4 +1,1 @@
 #lang rackpropagator/trace
-
-
-
