@@ -16,11 +16,8 @@
  (rename-out (dual-log log))
  (rename-out (number-or-dual? number?))
  get-dual-part
- D
- D0
- D1
- D2
- grad)
+ partial/f
+ D/f)
 
 (define (dual-= x y)
   (= (primal x) (primal y)))
@@ -135,18 +132,13 @@
         [else (dual s)]))
         
 ;; n'th partial derivative of a function f
-(define (((D n) f) . args)
+(define ((partial/f n f) . args)
   (let ([args* (for/list [(i (in-naturals))
                           (a args)]
                  (if (= i n)
-                     ;;(dual-+ a (dual-number 0 1))
                      (dual-number a 1)
                      (dual-number a 0)))])
     (get-dual-part (apply f args*))))
 
-(define D0 (D 0))
-(define D1 (D 1))
-(define D2 (D 2))
-
-(define ((grad f) . args)
-  (build-vector (length args) (λ (i) (apply ((D i) f) args))))
+(define ((D/f f) . args)
+  (build-vector (length args) (λ (i) (apply ((D/f i f) args)))))
