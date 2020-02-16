@@ -180,7 +180,6 @@ latex
    (item "Differentiation")
    (item "Automatic differentiation algorithm(s)")
    (item "Implementation")
-   (item "Resources")
    }
 
   {slide
@@ -1605,7 +1604,7 @@ latex
 
 
   ;(start-at-recent-slide)
-  (set-page-numbers-visible! #t)
+;  (set-page-numbers-visible! #t)
 
 
   );; module slideshow
