@@ -1,6 +1,6 @@
 #lang racket
 
-;; Idea of Wang et al 2019 "Demystifying Differentiable Programming:
+;; See Wang et al 2019 "Demystifying Differentiable Programming:
 ;; Shift/Reset the Penultimate Backpropagator"
 
 ;; uses mutation
@@ -24,7 +24,8 @@
              (set-dual-number-d! x (+ (dual x) (dual sum)))
              (set-dual-number-d! y (+ (dual y) (dual sum)))))))
 
-;; grad : (dual-number? ... -> dual-number?) -> (Listof number?)
+;; grad : (dual-number? ... -> dual-number?) -> dual-number? ...
+;;          -> (Listof number?)
 (define ((grad f) . xs)
   (get-dual-part
    (reset
