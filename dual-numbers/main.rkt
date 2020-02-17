@@ -3,6 +3,7 @@
 (require "dual-number.rkt")
 
 (provide
+ (all-from-out "dual-number.rkt")
  (rename-out (dual-= =))
  (rename-out (dual-< <))
  (rename-out (dual-> >))
