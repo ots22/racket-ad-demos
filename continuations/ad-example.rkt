@@ -1,15 +1,19 @@
 #lang racket
 
-;; this uses the idea directly from Wang et al 2019 - Penultimate
-;; Backpropagator
+;; Idea of Wang et al 2019 "Demystifying Differentiable Programming:
+;; Shift/Reset the Penultimate Backpropagator"
 
 ;; uses mutation
 
 (require racket/control)
+(module+ test
+  (require rackunit))
 
-(require "../dual-numbers/dual-number.rkt")
+;; shadow arithmetic operators with those working on both "number?"
+;; and "dual-number?"
 (require "../dual-numbers/main.rkt")
 
+;; +k : dual-number? dual-number? -> dual-number?
 (define (+k x y)
   (shift k
          ;; set the dual part of "sum" to 0.0 (do this by dropping the
@@ -20,13 +24,19 @@
              (set-dual-number-d! x (+ (dual x) (dual sum)))
              (set-dual-number-d! y (+ (dual y) (dual sum)))))))
 
+;; grad : (dual-number? ... -> dual-number?) -> (Listof number?)
 (define ((grad f) . xs)
-  (reset
-   (let ((result (apply f xs)))
-     (set-dual-number-d! result 1.0)
-     xs)))
+  (get-dual-part
+   (reset
+    (let ((result (apply f xs)))
+      (set-dual-number-d! result 1.0)
+      xs))))
 
-(define (f x y)
-  (+k (+k x y) y))
+(module+ test
+  (define (f x y)
+    (+k (+k x y) y))
 
-((grad f) (dual-number 2 0) (dual-number 1 0))
+  (check-equal?
+   ((grad f) (dual-number 10.0 0.0)
+             (dual-number 5.0 0.0))
+   '(1.0 2.0)))
