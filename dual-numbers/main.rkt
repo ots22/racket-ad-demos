@@ -142,4 +142,4 @@
     (get-dual-part (apply f args*))))
 
 (define ((D/f f) . args)
-  (build-vector (length args) (λ (i) (apply ((D/f i f) args)))))
+  (build-vector (length args) (λ (i) (apply (partial/f i f) args))))
