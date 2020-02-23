@@ -16,11 +16,9 @@ to fetch the package and install it directly from GitHub.
 
 ## Contents
 
-This repository contains implementations of a few
-[https://en.wikipedia.org/wiki/Automatic_differentiation](automatic
-differentiation) algorithms.
-
-
+This repository contains implementations of a few [automatic
+differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation)
+algorithms.
 
 ## Dual numbers
 
