@@ -22,13 +22,17 @@ algorithms.
 
 ## Dual numbers
 
-The is a straightfoward implementation of AD with dual-numbers.
+This is a straightfoward implementation of AD with dual-numbers.
 
 ```racket
 #lang racket
 (require rackpropagator/dual-numbers)
 
-;; ...
+(define (f x y)
+  (+ (* x x) (* x y)))
+
+(f 10.0 2.0) ; => 120.0
+((D/f f) 10.0 2.0) ; => #(22.0 10.0)
 ```
 
 ### Known limitations
