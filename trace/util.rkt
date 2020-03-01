@@ -3,6 +3,9 @@
 (provide reshape
          ind-list
          flip
+         raises?
+         within-rel
+         checks->preds
          chunk
          chunk2
          next-name
@@ -11,7 +14,10 @@
          upd-adj
          (for-syntax syntax-reverse))
 
-(require racket/syntax)
+(require racket/syntax
+         rackunit
+         quickcheck)
+
 (module+ test
   (require rackunit))
 
@@ -62,6 +68,38 @@
 
 
 (define ((flip f) a b) (f b a))
+
+(define (raises? pred? t)
+  (with-handlers ([pred?
+                   (λ (e) #t)]
+                  [exn:fail?
+                   (λ (e) #f)])
+    (begin (t) #f)))
+
+(module+ test
+  (test-case "raises?"
+    (check-true  (raises? exn:fail:contract:divide-by-zero?
+                          (λ () (/ 1 0))))
+    (check-false (raises? exn:fail:contract:divide-by-zero?
+                          (λ () (/ 1 2))))
+    (check-false (raises? exn:fail:contract:divide-by-zero?
+                          (λ () (error "some other error"))))))
+
+(define (within-rel tol x y)
+  (or (= x y)
+      (< (/ (abs (- x y)) (min (abs x) (abs y))) tol)))
+
+;; evaluate forms with any checks converted to predicates in their
+;; test condition
+(define-syntax-rule (checks->preds forms ...)
+  (parameterize
+      ([current-check-handler (const #f)] ;; check failed => #f
+       [current-check-around
+        (λ (chk-thunk)
+          (with-handlers ([(const #t) (current-check-handler)])
+            (chk-thunk)
+            #t))]) ;; check passed => #t
+    forms ...))
 
 (define (chunk n xs) (for/list ([x (in-slice n xs)]) x))
 (define chunk2 (curry chunk 2))
