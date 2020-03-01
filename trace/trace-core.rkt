@@ -3,12 +3,14 @@
 (provide (all-defined-out))
 
 (require racket/syntax
+         quickcheck
          (for-syntax racket/syntax)
          "trace.rkt"
          "util.rkt")
 
 (module+ test
-  (require rackunit))
+  (require rackunit
+           rackunit/quickcheck))
 
 ;; ----------------------------------------
 ;; datum
@@ -18,6 +20,25 @@
   (syntax-case stx ()
     [(_ . d)
      #'(make-trace (make-assignment #:val (#%datum . d)))]))
+
+(module+ test
+  (test-case "datum"
+    (define d (datum . 1.0))
+    (check-equal? (top-val d) 1.0)
+    (check-equal? (top-expr d) '(constant 1.0))
+    (check-equal? (length (trace-items d)) 1)))
+
+
+;; ----------------------------------------
+
+(define (val->trace v)
+  (make-trace (make-assignment #:val v)))
+
+;; take a quickcheck generator and produce another that generates the
+;; same values, but as traces
+(define (gen-trace gen)
+  (bind-generators ([v gen])
+                   (val->trace v)))
 
 
 ;; ----------------------------------------
@@ -133,20 +154,54 @@
 ;; ...
 
 (module+ test
-  (for* ([i (in-range -10.0 10.0 1.2)]
-         [j (in-range -10.0 10.0 1.2)]
-         [op (list (cons + +&)
-                   (cons - -&)
-                   (cons * *&)
-                   (cons / /&)
-                   (cons = =&)
-                   (cons < <&)
-                   (cons > >&)
-                   (cons <= <=&)
-                   (cons >= >=&))
-                   ])
-    (check-equal? (top-val
-                   ((cdr op) (make-trace (make-assignment #:val i))
-                             (make-trace (make-assignment #:val j))))
-                  ((car op) i j))))
+  ;; property-based tests to check that the traced operators produce
+  ;; the same result as their counterparts
+  (test-case "traced ops"
+    (for ([bin-op (list (cons + +&)
+                        (cons - -&)
+                        (cons * *&)
+                        (cons / /&)
+                        (cons expt expt&)
+                        (cons = =&)
+                        (cons < <&)
+                        (cons > >&)
+                        (cons <= <=&)
+                        (cons >= >=&)
+                        (cons cons cons&))])
+      (with-check-info (['operation-plain (car bin-op)]
+                        ['operation-trace (cdr bin-op)])
+        (check-property
+         (property ([x arbitrary-real]
+                    [y arbitrary-real])
+                   (equal?
+                    (top-val ((cdr bin-op) (val->trace x) (val->trace y)))
+                    ((car bin-op) x y))))))
 
+    (check-property
+     (property ([x arbitrary-real])
+               (= (top-val (exp& (val->trace x)))
+                  (exp x))))
+
+    (check-property
+     (property ([x (choose-real 0 1e+8)])
+               (= (top-val (log& (val->trace x)))
+                  (log x))))
+
+    (check-property
+     (property ([xs (arbitrary-pair arbitrary-real
+                                    (arbitrary-list arbitrary-real))])
+               (let ([xs& (apply list& (map val->trace xs))])
+                 (and (equal? (top-val (car& xs&)) (car xs))
+                      (equal? (top-val (cdr& xs&)) (cdr xs))))))
+
+    (check-equal? (top-val (not& (val->trace #f))) #t)
+    (check-equal? (top-val (not& (val->trace #t))) #f)
+
+    (check-equal? (top-val (null?& (val->trace null))) #t)
+    (check-equal? (top-val (pair?& (list& (val->trace 'a)
+                                          (val->trace 'b))))
+                  #t)
+    (check-equal? (top-val (pair?& null&)) #f)
+    (check-equal? (top-val (pair?& (val->trace 1.0))) #f)
+
+    )) ; test-case, module+

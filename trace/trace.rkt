@@ -22,8 +22,7 @@
          top
          top-id
          top-expr
-         top-val
-         )
+         top-val)
 
 (require "util.rkt"
          racket/syntax

@@ -1,7 +1,12 @@
 #lang racket
 
 (require rackunit
-         "trace.rkt")
+         quickcheck
+         rackunit/quickcheck
+         "trace.rkt"
+         "trace-core.rkt"
+         "diff.rkt"
+         "util.rkt")
 
 (module derivatives-1 "trace-lang.rkt"
   (require "diff.rkt")
@@ -9,12 +14,19 @@
 
   (define (const_one x)
     ([partial/f 0 (λ (y) (+ x y))] 1.0))
-  (define expect-one ((partial/f 0 (λ (x) (* x (const_one x)))) 1.0))
 
   ;;
 
   (define (cube x) (* x (* x x)))
-  (define Dcube_5 ((partial/f 0 cube) 5))
+
+  (define cube_0  (partial/f 0 cube))
+  (define (cube_0/expect x)  (* 3.0 (* x x)))
+
+  (define Dcube/f (D/f cube))
+
+  (define Dcube/r (D/r cube))
+
+  (define (Dcube/expect x) (list (cube_0/expect x)))
 
   ;;
 
@@ -24,47 +36,101 @@
           r
           (rec x (- n 1) (* r x))))
     (rec x n 1.0))
-  (define Dpow_2_5 ((partial/f 0 pow) 2.0 5))
+
+  (define pow_0 (partial/f 0 pow))
+  (define (pow_0/expect x n) (* n (pow x (- n 1))))
 
   ;;
 
   (define (f x y) (+ x (* y y)))
-  (define Df_2_1_fm ((D/f f) 2.0 1.0))
-  (define Df_2_1_rm ((D/r f) 2.0 1.0))
+
+  (define f_0 (partial/f 0 f))
+  (define (f_0/expect x y) 1.0)
+
+  (define f_1 (partial/f 1 f))
+  (define (f_1/expect x y) (* 2.0 y))
+
+  (define Df/f (D/f f))
+  (define Df/r (D/r f))
+
+  (define (Df/expect x y) (list (f_0/expect x y)
+                                (f_1/expect x y)))
+
 
   ;;
 
-  (define (gcar x y)
+  (define (g1 x y)
     (car (cons (* y 2) (* x 3))))
-  (define Dgcar_1_1_fm ((D/f gcar) 1.0 1.0))
-  (define Dgcar_1_1_rm ((D/r gcar) 1.0 1.0))
 
-  ;;
-
-  (define (gcdr x y)
+  (define (g2 x y)
     (cdr (cons (* y 2) (* x 3))))
-  (define Dgcdr_1_1_fm ((D/f gcdr) 1.0 1.0))
-  (define Dgcdr_1_1_rm ((D/r gcdr) 1.0 1.0))
 
-  ;;
+  (define Dg1/f (D/f g1))
+  (define Dg1/r (D/r g1))
 
-  )
+  (define (Dg1/expect x y) (list 0.0 2.0))
+
+  (define Dg2/f (D/f g2))
+  (define Dg2/r (D/r g2))
+
+  (define (Dg2/expect x y) (list 3.0 0.0))
+
+)
+
+
 
 (require 'derivatives-1)
 
-(test-case "derivatives-1"
-  (check-equal? (top-val expect-one) 1.0)
-  (check-equal? (top-val Dcube_5) 75.0)
-  (check-equal? (top-val Dpow_2_5) 80.0)
+(module+ test
+  (test-case "derivatives-1"
+    (check-property
+     (property ([x arbitrary-real])
+               (top-val (=& (const_one (val->trace x)) (datum . 1.0)))))
 
-  (check-equal? (top-val Df_2_1_fm) '(1.0 2.0))
-  (check-equal? (top-val Df_2_1_rm) '(1.0 2.0))
+    (check-property
+     (property ([x (gen-trace (choose-real -1e2 1e2))])
+               (and
+                (equal? (top-val (cube_0 x))
+                        (top-val (cube_0/expect x)))
 
-  (check-equal? (top-val Dgcar_1_1_fm) '(0.0 2.0))
-  (check-equal? (top-val Dgcar_1_1_rm) '(0.0 2.0))
+                (equal? (top-val (Dcube/f x))
+                        (top-val (Dcube/expect x)))
 
-  (check-equal? (top-val Dgcdr_1_1_fm) '(3.0 0.0))
-  (check-equal? (top-val Dgcdr_1_1_rm) '(3.0 0.0)))
+                (equal? (top-val (Dcube/r x))
+                        (top-val (Dcube/expect x))))))
+
+    (check-property
+     (property ([x (gen-trace (choose-real 0.0 1e2))]
+                [n (gen-trace (choose-integer 0 10))])
+               (within-rel 1e-15
+                           (top-val (pow_0 x n))
+                           (top-val (pow_0/expect x n)))))
+
+    (check-property
+     (property ([x (gen-trace (choose-real -1e5 1e5))]
+                [y (gen-trace (choose-real -1e5 1e5))])
+               (and
+                (equal? (top-val (f_0 x y))
+                        (top-val (f_0/expect x y)))
+                (equal? (top-val (f_1 x y))
+                        (top-val (f_1/expect x y)))
+                (equal? (top-val (Df/f x y))
+                        (top-val (Df/expect x y)))
+                (equal? (top-val (Df/r x y))
+                        (top-val (Df/expect x y))))))
+
+    (check-property
+     (property ([x (gen-trace (choose-real -1e10 1e10))]
+                [y (gen-trace (choose-real -1e10 1e10))])
+               (and
+                (equal? (top-val (Dg1/f x y))
+                        (top-val (Dg1/expect x y)))
+                (equal? (top-val (Dg1/r x y))
+                        (top-val (Dg1/expect x y)))
+                (equal? (top-val (Dg2/f x y))
+                        (top-val (Dg2/expect x y)))
+                (equal? (top-val (Dg2/r x y))
+                        (top-val (Dg2/expect x y))))))))
 
 
 ;; ----------------------------------------
@@ -73,16 +139,39 @@
   (require "diff.rkt")
   (provide (all-defined-out))
 
+  ;;
+
   (define (h x y)
     (list (* x y) (* x y) (* y y)))
-  (define Dh_2_3_fm ((D/f h) 2.0 3.0))
-  (define Dh_2_3_rm ((D/r h) 2.0 3.0))
+
+  (define Dh/f (D/f h))
+
+  ;; note D/r returns the "transpose" of D/f
+  (define (Dh/f/expect x y)
+    (list (list y y 0.0)
+          (list x x (* 2.0 y))))
+
+  (define Dh/r (D/r h))
+
+  (define (Dh/r/expect x y)
+    (list (list y x) (list y x) (list 0.0 (* 2.0 y))))
+
+  ;;
 
 )
 
 (require 'derivatives-2)
 
-(test-case "derivatives-2"
-  ;; note D/r returns the "transpose" of D/f
-  (check-equal? (top-val Dh_2_3_fm) '((3.0 3.0 0.0) (2.0 2.0 6.0)))
-  (check-equal? (top-val Dh_2_3_rm) '((3.0 2.0) (3.0 2.0) (0.0 6.0))))
+(module+ test
+  (test-case "derivatives-2"
+    (check-property
+     (property ([x (gen-trace (choose-real -1e2 1e2))]
+                [y (gen-trace (choose-real -1e2 1e2))])
+               (checks->preds
+                (and
+                 (check-within (top-val (Dh/f x y))
+                               (top-val (Dh/f/expect x y))
+                               0.0)
+                 (check-within (top-val (Dh/r x y))
+                               (top-val (Dh/r/expect x y))
+                               0.0)))))))

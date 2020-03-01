@@ -11,7 +11,9 @@
          "cons-arithmetic.rkt")
 
 (module+ test
-  (require rackunit))
+  (require rackunit
+           quickcheck
+           rackunit/quickcheck))
 
 ;; the i'th partial derivative of f at xs
 ;;
@@ -48,8 +50,23 @@
 
 (module+ test
   (test-case "pderiv"
-    (check-true (top-val (=& (pderiv 0 '* (datum . 1) (datum . 2))
-                             (datum . 2))))))
+    (check-property
+     (property ([x (gen-trace (choose-real -1e10 1e10))]
+                [y (gen-trace (choose-real -1e10 1e10))])
+               (and
+                (top-val (=& (pderiv 0 '* x y) y))
+                (top-val (=& (pderiv 1 '* x y) x))
+                (raises? exn:fail:contract? (λ () (pderiv 2 '* x y))))))
+
+    (check-property
+     (property ([x (gen-trace (choose-real -1e10 1e10))]
+                [y (gen-trace (choose-real -1e10 1e10))])
+               (and
+                (top-val (=& (pderiv 0 '+ x y) (datum . 1.0)))
+                (top-val (=& (pderiv 1 '+ x y) (datum . 1.0)))
+                (raises? exn:fail:contract? (λ () (pderiv 2 '+ x y))))))
+
+    (check-exn exn:fail:contract? (λ () (pderiv 0 'unknown 0.0)))))
 
 #|
 
