@@ -24,7 +24,7 @@ latex
   (define frac-client-h (blank (* 0.15 client-h) (* 0.15 client-h)))
 
   (define (stacked-rect #:color color . picts)
-    (lambda ([fit-width (blank 0)])
+    (λ ([fit-width (blank 0)])
       (define stacked (apply vc-append picts))
       (define rect
         (scale-to-fit (cellophane

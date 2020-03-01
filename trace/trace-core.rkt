@@ -118,7 +118,7 @@
 (define-traced-primitive (cons& a b)   'cons  (cons a b))
 (define-traced (list& . xs) xs)
 
-(define-syntax null& (lambda (stx) #'(datum . ())))
+(define-syntax null& (λ (stx) #'(datum . ())))
 
 (define-traced-primitive (car& a) 'car (car a))
 (define-traced-primitive (cdr& a) 'cdr (cdr a))

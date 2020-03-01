@@ -72,7 +72,7 @@
   #:guard (struct-guard/c (listof assignment?))
   #:methods gen:custom-write
   [(define write-proc
-     (lambda (x port mode)
+     (λ (x port mode)
        (write (val (top x)) port)))])
 
 ;; alternative constructor
@@ -175,7 +175,7 @@
          [id-width      (apply max (map string-length id-fmt))]
          [expr-width    (apply max (map string-length expr-fmt))]
          [val-width     (apply max (map string-length val-fmt))])
-    (display (foldl (lambda (i e v acc)
+    (display (foldl (λ (i e v acc)
                       (string-append
                        (format "~a | ~a | ~a~%"
                                (~a i #:min-width id-width)
