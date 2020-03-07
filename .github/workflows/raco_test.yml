@@ -1,9 +1,21 @@
-steps:
-- uses: actions/checkout@master
-- uses: Bogdanp/setup-racket@v0.6
-  with:
-    architecture: 'x64'   # (x64 or x86), ignored on Linux
-    distribution: 'full'  # or 'minimal'
-    variant: 'regular'    # or 'CS' for Racket-on-Chez
-    version: '7.5'        # or 'current' for the latest snapshot
-- run: raco test .
+# Run MICE R script (including installing dependencies)
+name: MICE CI
+
+on:
+  push:
+    paths:
+      - 'synth-methods/mice/**'
+      - '.github/workflows/mice_ci.yml'
+
+jobs:
+  run_script:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@master
+      - uses: Bogdanp/setup-racket@v0.6
+        with:
+          architecture: 'x64'   # (x64 or x86), ignored on Linux
+          distribution: 'full'  # or 'minimal'
+          variant: 'regular'    # or 'CS' for Racket-on-Chez
+          version: '7.5'        # or 'current' for the latest snapshot
+      - run: raco test .
