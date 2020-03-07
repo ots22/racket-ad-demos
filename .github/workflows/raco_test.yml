@@ -1,11 +1,6 @@
-# Run MICE R script (including installing dependencies)
-name: MICE CI
+name: raco test
 
-on:
-  push:
-    paths:
-      - 'synth-methods/mice/**'
-      - '.github/workflows/mice_ci.yml'
+on: [push]
 
 jobs:
   run_script:
