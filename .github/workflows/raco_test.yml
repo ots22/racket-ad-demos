@@ -13,4 +13,5 @@ jobs:
           distribution: 'full'  # or 'minimal'
           variant: 'regular'    # or 'CS' for Racket-on-Chez
           version: '7.5'        # or 'current' for the latest snapshot
+      - run: raco pkg install .
       - run: raco test .
