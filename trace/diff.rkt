@@ -1,6 +1,6 @@
 #lang racket
 
-(provide (rename-out (partial/f& partial/f))
+(provide partial/f
          A/r
          D/f
          D/r)
@@ -37,7 +37,7 @@
                   [(1)   (car  xs)]
                   [else  (err)])]
     [(exp)      (case i
-                  [(0)   (exp& (car xs))]
+                  [(0)   ((top-val exp&) (car xs))]
                   [else  (err)])]
     [(identity) (case i
                   [(0)   (datum . 1.0)]
@@ -54,16 +54,16 @@
      (property ([x (gen-trace (choose-real -1e10 1e10))]
                 [y (gen-trace (choose-real -1e10 1e10))])
                (and
-                (top-val (=& (pderiv 0 '* x y) y))
-                (top-val (=& (pderiv 1 '* x y) x))
+                (top-val ((top-val =&) (pderiv 0 '* x y) y))
+                (top-val ((top-val =&) (pderiv 1 '* x y) x))
                 (raises? exn:fail:contract? (λ () (pderiv 2 '* x y))))))
 
     (check-property
      (property ([x (gen-trace (choose-real -1e10 1e10))]
                 [y (gen-trace (choose-real -1e10 1e10))])
                (and
-                (top-val (=& (pderiv 0 '+ x y) (datum . 1.0)))
-                (top-val (=& (pderiv 1 '+ x y) (datum . 1.0)))
+                (top-val ((top-val =&) (pderiv 0 '+ x y) (datum . 1.0)))
+                (top-val ((top-val =&) (pderiv 1 '+ x y) (datum . 1.0)))
                 (raises? exn:fail:contract? (λ () (pderiv 2 '+ x y))))))
 
     (check-exn exn:fail:contract? (λ () (pderiv 0 'unknown 0.0)))))
@@ -168,46 +168,64 @@ jumps/calls, and is Turing complete.
      (match (expr assgn)
        [(list 'constant '())  (datum . ())]
        [(list 'constant c)    (datum . 0.0)]
-       [(list 'app 'cons x y) (cons& (D x) (D y))]
-       [(list 'app 'car ls)   (car& (D ls))]
-       [(list 'app 'cdr ls)   (cdr& (D ls))]
+       [(list 'app 'cons x y) ((top-val cons&) (D x) (D y))]
+       [(list 'app 'car ls)   ((top-val car&) (D ls))]
+       [(list 'app 'cdr ls)   ((top-val cdr&) (D ls))]
        [(list 'app op xs ...) (let ([xs& (map I xs)])
                                 (for/fold ([acc (datum . 0.0)])
                                           ([x xs]
                                            [i (in-naturals)])
                                   (define D_i_op (apply pderiv i op xs&))
-                                  (+& (*& D_i_op (D x)) acc)))])]))
+                                  ((top-val +&) ((top-val *&) D_i_op (D x))
+                                                acc)))])]))
 
 ;; The i'th partial derivative of f, evaluated as xs, computed by
 ;; forward accumulation
 ;;
 ;; partial/f : integer? (trace? ... -> trace?) -> trace? ... -> trace?
-(define ((partial/f i f) . xs)
-  (let* ([var       (top-id (list-ref xs i))]
-         [indep-ids (map top-id xs)]
-         [result    (apply f xs)])
-    (define-values (Dresult _)
-      (for/fold ([tr result]
-                 [deriv-map (hash)])
-                ([a (reverse (trace-items result))])
-        (let* ([Da (deriv/f a var indep-ids tr deriv-map)])
-          {values
-           (trace-append Da tr)
-           (hash-set deriv-map (id a) (top-id Da))})))
-    (trace-prune (trace-remove-duplicates Dresult))))
+(define partial/f
+  (val->trace
+   (procedure-rename
+    (lambda (i f)
+      (val->trace
+       (lambda xs
+         (let* ([var       (top-id (list-ref xs (top-val i)))]
+                [indep-ids (map top-id xs)]
+                [result    (apply (top-val f) xs)])
+           (define-values (Dresult _)
+             (for/fold ([tr result]
+                        [deriv-map (hash)])
+                       ([a (reverse (trace-items result))])
+               (let* ([Da (deriv/f a var indep-ids tr deriv-map)])
+                 {values
+                  (trace-append Da tr)
+                  (hash-set deriv-map (id a) (top-id Da))})))
+           (trace-prune (trace-remove-duplicates Dresult))))))
+    'partial/f)))
 
 ;; The operator partial/f, for providing to the tracing lang
 ;;
 ;; D& : trace? (trace? ... -> trace?) -> trace? ... -> trace?
-(define (partial/f& i f) (partial/f (top-val i) f))
+;; (define partial/f&
+;;   (val->trace
+;;    (lambda (i f)
+;;      ((top-val partial/f) (top-val i) f))))
 
 ;; The Jacobian of f at xs, computed by forward accumulation
 ;;
 ;; D/f : (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define ((D/f f) . xs)
-  (let* ([n (length xs)]
-         [Di (for/list ([i (range n)]) (apply (partial/f i f) xs))])
-    (apply list& Di)))
+(define D/f
+  (val->trace
+   (procedure-rename
+    (lambda (f)
+      (val->trace
+       (lambda xs
+         (let* ([n (length xs)]
+                [Di (for/list ([i (range n)])
+                      (apply (top-val ((top-val partial/f) (val->trace i) f))
+                             xs))])
+           (apply (top-val list&) Di)))))
+      'D/f)))
 
 ;; ----------------------------------------
 ;; Reverse mode AD
@@ -278,16 +296,18 @@ to record it anywhere globally.
     [(list 'constant c) {values Aw adjoint-terms}]
 
     [(list 'app 'cons x y)
-     (let ([Ax (car& Aw)]
-           [Ay (cdr& Aw)])
+     (let ([Ax ((top-val car&) Aw)]
+           [Ay ((top-val cdr&) Aw)])
        {values (trace-append Ay Ax Aw)
                (upd-adj adjoint-terms #:key top-id x Ax y Ay)})]
 
     [(list 'app c_r xs) #:when (or (eq? c_r 'car) (eq? c_r 'cdr))
      (let* ([xs& (trace-get xs Aw)]
             [tr  (case c_r
-                   [(car) (cons& Aw (cons-zero (cdr& xs&)))]
-                   [(cdr) (cons& (cons-zero (car& xs&)) Aw)])])
+                   [(car) ((top-val cons&)
+                           Aw ((top-val cons-zero) ((top-val cdr&) xs&)))]
+                   [(cdr) ((top-val cons&)
+                           ((top-val cons-zero) ((top-val car&) xs&)) Aw)])])
        {values (trace-append tr Aw)
                (upd-adj adjoint-terms #:key top-id xs tr)})]
 
@@ -297,7 +317,7 @@ to record it anywhere globally.
                   [adjoint-terms adjoint-terms])
                  ([x xs]
                   [i (in-naturals)])
-         (let ([Ax (*& Aw (apply pderiv i op xs&))])
+         (let ([Ax ((top-val *&) Aw (apply pderiv i op xs&))])
            {values (trace-append Ax tr)
                    (upd-adj adjoint-terms #:key top-id x Ax)})))]
     ))
@@ -338,7 +358,7 @@ to record it anywhere globally.
 
            ;; adj-terms can't be empty
            [(Aw) (trace-append
-                  (foldl cons-add (car Aw-terms) (cdr Aw-terms))
+                  (foldl (top-val cons-add) (car Aw-terms) (cdr Aw-terms))
                   tr)]
 
            [(adjoints*) (hash-set adjoints (id w) (top-id Aw))]
@@ -355,7 +375,7 @@ to record it anywhere globally.
   (let* ([tr* (trace-add tr (make-assignment #:val 0.0))]
          [zero-id (top-id tr*)])
     (trace-prune
-     (apply list&
+     (apply (top-val list&)
             (for/list ([x indep-ids])
               (trace-get (hash-ref adjoints x zero-id) tr*))))))
 
@@ -365,8 +385,8 @@ to record it anywhere globally.
 (define (cons->trace x)
   (cond
     [(null? x)  null&]
-    [(pair? x)  (cons& (cons->trace (car x))
-                       (cons->trace (cdr x)))]
+    [(pair? x)  ((top-val cons&) (cons->trace (car x))
+                                 (cons->trace (cdr x)))]
     [(trace? x) x]
     [else       (datum->trace x)]))
 
@@ -375,21 +395,27 @@ to record it anywhere globally.
 ;;
 ;;
 ;; D/r : (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define ((D/r f) . xs)
-  (let* ([indep-ids (map top-id xs)]
-         [result-tr (apply f xs)]
-         [result (top-val result-tr)]
-         [result-flat (flatten result)]
-         [n (length result-flat)])
-    ;; flatten the result, seed each element in turn, reshape back to
-    ;; have the same shape as the result, then call A/r.  Accumulate
-    ;; into a list, then reshape back to have the shape of result.
-    ;; Finally, convert cons of traces to trace of conses
-    (cons->trace
-     (reshape result
-              (for/list ([i (in-range n)])
-                (let ([s (cons->trace
-                          (reshape result
-                                   (map exact->inexact
-                                        (ind-list n i))))])
-                  (A/r result-tr indep-ids s)))))))
+(define D/r
+  (val->trace
+   (procedure-rename
+    (lambda (f)
+      (val->trace
+       (lambda xs
+         (let* ([indep-ids (map top-id xs)]
+                [result-tr (apply (top-val f) xs)]
+                [result (top-val result-tr)]
+                [result-flat (flatten result)]
+                [n (length result-flat)])
+           ;; flatten the result, seed each element in turn, reshape back to
+           ;; have the same shape as the result, then call A/r.  Accumulate
+           ;; into a list, then reshape back to have the shape of result.
+           ;; Finally, convert cons of traces to trace of conses
+           (cons->trace
+            (reshape result
+                     (for/list ([i (in-range n)])
+                       (let ([s (cons->trace
+                                 (reshape result
+                                          (map exact->inexact
+                                               (ind-list n i))))])
+                         (A/r result-tr indep-ids s)))))))))
+    'D/r)))

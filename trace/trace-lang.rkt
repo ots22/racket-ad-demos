@@ -5,11 +5,11 @@
 
 (define one 1)
 
-(provide #%app
-         #%module-begin
+(provide #%module-begin
          #%top
          #%top-interaction
          (rename-out (datum #%datum))
+         (rename-out (app #%app))
          (rename-out (=& =))
          (rename-out (<&  <))
          (rename-out (<=& <=))
@@ -42,10 +42,10 @@
          
          and
          
-         trace-display
+         (rename-out (trace-display& trace-display))
 
-         lambda
-         λ
+         (rename-out (lambda& lambda))
+         (rename-out (lambda& λ))
 
          provide
          all-defined-out

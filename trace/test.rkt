@@ -85,52 +85,54 @@
   (test-case "derivatives-1"
     (check-property
      (property ([x arbitrary-real])
-               (top-val (=& (const_one (val->trace x)) (datum . 1.0)))))
+               (top-val
+                ((top-val =&) ((top-val const_one) (val->trace x))
+                              (val->trace 1.0)))))
 
     (check-property
      (property ([x (gen-trace (choose-real -1e2 1e2))])
                (and
-                (equal? (top-val (cube_0 x))
-                        (top-val (cube_0/expect x)))
+                (equal? (top-val ((top-val cube_0) x))
+                        (top-val ((top-val cube_0/expect) x)))
 
-                (equal? (top-val (Dcube/f x))
-                        (top-val (Dcube/expect x)))
+                (equal? (top-val ((top-val Dcube/f) x))
+                        (top-val ((top-val Dcube/expect) x)))
 
-                (equal? (top-val (Dcube/r x))
-                        (top-val (Dcube/expect x))))))
+                (equal? (top-val ((top-val Dcube/r) x))
+                        (top-val ((top-val Dcube/expect) x))))))
 
     (check-property
      (property ([x (gen-trace (choose-real 0.0 1e2))]
                 [n (gen-trace (choose-integer 0 10))])
                (within-rel 1e-15
-                           (top-val (pow_0 x n))
-                           (top-val (pow_0/expect x n)))))
+                           (top-val ((top-val pow_0) x n))
+                           (top-val ((top-val pow_0/expect) x n)))))
 
     (check-property
      (property ([x (gen-trace (choose-real -1e5 1e5))]
                 [y (gen-trace (choose-real -1e5 1e5))])
                (and
-                (equal? (top-val (f_0 x y))
-                        (top-val (f_0/expect x y)))
-                (equal? (top-val (f_1 x y))
-                        (top-val (f_1/expect x y)))
-                (equal? (top-val (Df/f x y))
-                        (top-val (Df/expect x y)))
-                (equal? (top-val (Df/r x y))
-                        (top-val (Df/expect x y))))))
+                (equal? (top-val ((top-val f_0) x y))
+                        (top-val ((top-val f_0/expect) x y)))
+                (equal? (top-val ((top-val f_1) x y))
+                        (top-val ((top-val f_1/expect) x y)))
+                (equal? (top-val ((top-val Df/f) x y))
+                        (top-val ((top-val Df/expect) x y)))
+                (equal? (top-val ((top-val Df/r) x y))
+                        (top-val ((top-val Df/expect) x y))))))
 
     (check-property
      (property ([x (gen-trace (choose-real -1e10 1e10))]
                 [y (gen-trace (choose-real -1e10 1e10))])
                (and
-                (equal? (top-val (Dg1/f x y))
-                        (top-val (Dg1/expect x y)))
-                (equal? (top-val (Dg1/r x y))
-                        (top-val (Dg1/expect x y)))
-                (equal? (top-val (Dg2/f x y))
-                        (top-val (Dg2/expect x y)))
-                (equal? (top-val (Dg2/r x y))
-                        (top-val (Dg2/expect x y))))))))
+                (equal? (top-val ((top-val Dg1/f) x y))
+                        (top-val ((top-val Dg1/expect) x y)))
+                (equal? (top-val ((top-val Dg1/r) x y))
+                        (top-val ((top-val Dg1/expect) x y)))
+                (equal? (top-val ((top-val Dg2/f) x y))
+                        (top-val ((top-val Dg2/expect) x y)))
+                (equal? (top-val ((top-val Dg2/r) x y))
+                        (top-val ((top-val Dg2/expect) x y))))))))
 
 
 ;; ----------------------------------------
@@ -169,9 +171,9 @@
                 [y (gen-trace (choose-real -1e2 1e2))])
                (checks->preds
                 (and
-                 (check-within (top-val (Dh/f x y))
-                               (top-val (Dh/f/expect x y))
+                 (check-within (top-val ((top-val Dh/f) x y))
+                               (top-val ((top-val Dh/f/expect) x y))
                                0.0)
-                 (check-within (top-val (Dh/r x y))
-                               (top-val (Dh/r/expect x y))
+                 (check-within (top-val ((top-val Dh/r) x y))
+                               (top-val ((top-val Dh/r/expect) x y))
                                0.0)))))))

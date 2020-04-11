@@ -28,6 +28,8 @@
     (check-equal? (top-expr d) '(constant 1.0))
     (check-equal? (length (trace-items d)) 1)))
 
+(define-syntax-rule (app fn args ...)
+  (#%app (top-val fn) args ...))
 
 ;; ----------------------------------------
 
@@ -40,6 +42,7 @@
   (bind-generators ([v gen])
                    (val->trace v)))
 
+(define trace-display& (val->trace trace-display))
 
 ;; ----------------------------------------
 ;; arithmetic
@@ -72,18 +75,22 @@
                          #'(trace-append
                             (apply trace-append (reverse rest-args))
                             arg-traces-pat))])
-       #'(define (f args ... . rest-args)
-           (let (;; shadow the actual args (which have trace annotations)
-                 [result     (let arg-let body ...)]
-                 ;; trace the arguments in reverse order
-                 [all-arg-traces all-arg-traces-pat]
-                 [result-name (next-name)])
-             (trace-add
-              all-arg-traces
-              ;; add rest-args here
-              (make-assignment #:id   result-name
-                               #:expr (list* 'app f-name all-arg-ids-pat ...)
-                               #:val  result)))))]))
+       #'(define f
+           (val->trace
+            (procedure-rename
+             (lambda (args ... . rest-args)
+               (let (;; shadow the actual args (which have trace annotations)
+                     [result     (let arg-let body ...)]
+                     ;; trace the arguments in reverse order
+                     [all-arg-traces all-arg-traces-pat]
+                     [result-name (next-name)])
+                 (trace-add
+                  all-arg-traces
+                  ;; add rest-args here
+                  (make-assignment #:id   result-name
+                                   #:expr (list* 'app f-name all-arg-ids-pat ...)
+                                   #:val  result))))
+             f-name))))]))
 
 (define-syntax (define-traced stx)
   (syntax-case stx ()
@@ -98,14 +105,19 @@
                     [(rest-arg-let-binding ...)
                      (if (null? (syntax->datum #'rest-args))
                          #'()
-                         #'((rest-args (foldl cons& null& 
+                         #'((rest-args (foldl (top-val cons&)
+                                              null&
                                               (reverse rest-args)))))])
-       #'(define (f args ... . rest-args)
-           (let* ([arg-traces rev-args-trace]
-                  rest-arg-let-binding ...
-                  [result-trace (let () body ...)])
-             (trace-prune
-              (trace-append result-trace arg-traces)))))]))
+       #'(define f
+           (val->trace
+            (procedure-rename
+             (lambda (args ... . rest-args)
+               (let* ([arg-traces rev-args-trace]
+                      rest-arg-let-binding ...
+                      [result-trace (let () body ...)])
+                 (trace-prune
+                  (trace-append result-trace arg-traces))))
+             'f))))]))
 
 ;; Provided define form
 (define-syntax (define& stx)
@@ -149,6 +161,9 @@
 
 (define-traced-primitive (range& n) 'range (range n))
 
+(define-syntax-rule (lambda& forms ...)
+  (val->trace (lambda forms ...)))
+
 ;; map, fold etc ...
 
 ;; ...
@@ -174,34 +189,35 @@
          (property ([x arbitrary-real]
                     [y arbitrary-real])
                    (equal?
-                    (top-val ((cdr bin-op) (val->trace x) (val->trace y)))
+                    (top-val ((top-val (cdr bin-op))
+                              (val->trace x) (val->trace y)))
                     ((car bin-op) x y))))))
 
     (check-property
      (property ([x arbitrary-real])
-               (= (top-val (exp& (val->trace x)))
+               (= (top-val (app exp& (val->trace x)))
                   (exp x))))
 
     (check-property
      (property ([x (choose-real 0 1e+8)])
-               (= (top-val (log& (val->trace x)))
+               (= (top-val (app log& (val->trace x)))
                   (log x))))
 
     (check-property
      (property ([xs (arbitrary-pair arbitrary-real
                                     (arbitrary-list arbitrary-real))])
-               (let ([xs& (apply list& (map val->trace xs))])
-                 (and (equal? (top-val (car& xs&)) (car xs))
-                      (equal? (top-val (cdr& xs&)) (cdr xs))))))
+               (let ([xs& (apply (top-val list&) (map val->trace xs))])
+                 (and (equal? (top-val (app car& xs&)) (car xs))
+                      (equal? (top-val (app cdr& xs&)) (cdr xs))))))
 
-    (check-equal? (top-val (not& (val->trace #f))) #t)
-    (check-equal? (top-val (not& (val->trace #t))) #f)
+    (check-equal? (top-val (app not& (val->trace #f))) #t)
+    (check-equal? (top-val (app not& (val->trace #t))) #f)
 
-    (check-equal? (top-val (null?& (val->trace null))) #t)
-    (check-equal? (top-val (pair?& (list& (val->trace 'a)
-                                          (val->trace 'b))))
+    (check-equal? (top-val (app null?& (val->trace null))) #t)
+    (check-equal? (top-val (app pair?& (app list&
+                                            (val->trace 'a) (val->trace 'b))))
                   #t)
-    (check-equal? (top-val (pair?& null&)) #f)
-    (check-equal? (top-val (pair?& (val->trace 1.0))) #f)
+    (check-equal? (top-val (app pair?& null&)) #f)
+    (check-equal? (top-val (app pair?& (val->trace 1.0))) #f)
 
     )) ; test-case, module+
