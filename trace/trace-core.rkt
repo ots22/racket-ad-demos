@@ -1,6 +1,40 @@
 #lang racket
 
-(provide (all-defined-out))
+;; Implementation of the core functions and special forms in the
+;; rackpropagator/traced lang.
+
+;; Traced counterparts of several of these are provided with names
+;; ending in '&', and reprovided without the '&' from trace-lang.rkt.
+;; The custom #%datum and #%app for the lang are defined here as datum
+;; and app.
+
+(provide datum
+         app
+         define&
+         if&
+         lambda&
+         null&
+         not&
+         +& 
+         -&
+         *&
+         /&
+         =&
+         <&
+         >&
+         <=&
+         >=&
+         expt&
+         exp&
+         log&
+         cons&
+         car&
+         cdr&
+         null?&
+         pair?&
+         range&
+         list&
+         trace-display&)
 
 (require racket/syntax
          quickcheck
@@ -12,14 +46,21 @@
   (require rackunit
            rackunit/quickcheck))
 
-;; note the branching in the patterns, for the cases where rest-args
-;; is a symbol, or null (dotted argument list)
+;; define-traced and define-traced-primitive are helper macros that
+;; emit definition of functions that consume and emit traces.
+
+;; ...
+
 (define-syntax (define-traced-primitive stx)
   (syntax-case stx ()
     ;; f        : id?
     ;; args ... : trace? ...
     ;; body ... : expression? ...
     [(_ (f args ... . rest-args) f-name body ...)
+
+     ;; note the branching in the patterns, for the cases where rest-args
+     ;; is a symbol, or null (dotted argument list)
+
      (with-syntax* ([(arg-vals ...) #'((top-val args) ...)]
                     [rest-arg-vals #'(map top-val rest-args)]
                     [(arg-ids ...) #'((top-id args) ...)]
