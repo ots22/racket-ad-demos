@@ -13,7 +13,8 @@
 (module+ test
   (require rackunit
            quickcheck
-           rackunit/quickcheck))
+           rackunit/quickcheck
+           "test-util.rkt"))
 
 ;; the i'th partial derivative of f at xs
 ;;

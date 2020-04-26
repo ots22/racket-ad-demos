@@ -9,7 +9,7 @@
          expr
          val
 
-         (except-out (struct-out trace) trace)
+         (struct-out trace)
          make-trace
          trace-get
          trace-add
@@ -18,6 +18,8 @@
          trace-filter-out
          trace-prune
          trace-display
+
+         val->trace
 
          top
          top-id
@@ -49,6 +51,7 @@
     [check-false (expr? 1)]))
 
 ;; ----------------------------------------
+;; Assignment
 
 ;; represents a single assignment of value val, to an id (: symbol?),
 ;; as computed by an expression expr; expr must be:
@@ -69,7 +72,9 @@
 (define (expr v) (assignment-expr v))
 (define (val  v) (assignment-val  v))
 
+
 ;; ----------------------------------------
+;; Trace
 
 (struct trace (items) #:transparent
   #:guard (struct-guard/c (listof assignment?))
@@ -192,6 +197,13 @@
     (check-equal? actual expected)
     (check-equal? (trace-filter-out '(b d) actual) expected)))
 
+
+;; val->trace: make a single-assignment trace containing the given
+;; value (with default id and expr)
+;;
+;; val->trace : any/c -> trace?
+(define (val->trace v)
+  (make-trace (make-assignment #:val v)))
 
 ;; The head assignment in trace t
 ;;

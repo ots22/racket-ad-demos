@@ -6,7 +6,8 @@
          "trace.rkt"
          "trace-core.rkt"
          "diff.rkt"
-         "util.rkt")
+         "util.rkt"
+         "test-util.rkt")
 
 (module derivatives-1 "trace-lang.rkt"
   (require "diff.rkt")

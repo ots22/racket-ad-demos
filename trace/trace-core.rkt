@@ -12,41 +12,6 @@
   (require rackunit
            rackunit/quickcheck))
 
-;; ----------------------------------------
-;; datum
-
-;; A datum expands to a stack with a single element
-(define-syntax (datum stx)
-  (syntax-case stx ()
-    [(_ . d)
-     #'(make-trace (make-assignment #:val (#%datum . d)))]))
-
-(module+ test
-  (test-case "datum"
-    (define d (datum . 1.0))
-    (check-equal? (top-val d) 1.0)
-    (check-equal? (top-expr d) '(constant 1.0))
-    (check-equal? (length (trace-items d)) 1)))
-
-(define-syntax-rule (app fn args ...)
-  (#%app (top-val fn) args ...))
-
-;; ----------------------------------------
-
-(define (val->trace v)
-  (make-trace (make-assignment #:val v)))
-
-;; take a quickcheck generator and produce another that generates the
-;; same values, but as traces
-(define (gen-trace gen)
-  (bind-generators ([v gen])
-                   (val->trace v)))
-
-(define trace-display& (val->trace trace-display))
-
-;; ----------------------------------------
-;; arithmetic
-
 ;; note the branching in the patterns, for the cases where rest-args
 ;; is a symbol, or null (dotted argument list)
 (define-syntax (define-traced-primitive stx)
@@ -119,7 +84,14 @@
                   (trace-append result-trace arg-traces))))
              'f))))]))
 
-;; Provided define form
+;; ----------------------------------------
+
+(define-syntax-rule (datum . d)
+  (val->trace (#%datum . d)))
+
+(define-syntax-rule (app fn args ...)
+  (#%app (top-val fn) args ...))
+
 (define-syntax (define& stx)
   (syntax-case stx ()
     [(_ (id args ... . rest-args) body ...)
@@ -133,38 +105,49 @@
            then-expr
            else-expr)]))
 
-(define-traced-primitive (not& a)    'not  (not a))
-
-(define-traced-primitive (+& a b)    '+    (+ a b))
-(define-traced-primitive (-& a b)    '-    (- a b))
-(define-traced-primitive (*& a b)    '*    (* a b))
-(define-traced-primitive (/& a b)    '/    (/ a b))
-(define-traced-primitive (=& a b)    '=    (= a b))
-(define-traced-primitive (<& a b)    '<    (< a b))
-(define-traced-primitive (>& a b)    '>    (> a b))
-(define-traced-primitive (<=& a b)   '<=   (<= a b))
-(define-traced-primitive (>=& a b)   '>=   (>= a b))
-(define-traced-primitive (expt& a b) 'expt (expt a b))
-(define-traced-primitive (exp& a)    'exp  (exp a))
-(define-traced-primitive (log& a)    'log  (log a))
-
-(define-traced-primitive (cons& a b)   'cons  (cons a b))
-(define-traced (list& . xs) xs)
-
-(define-syntax null& (λ (stx) #'(datum . ())))
-
-(define-traced-primitive (car& a) 'car (car a))
-(define-traced-primitive (cdr& a) 'cdr (cdr a))
-
-(define-traced-primitive (null?& a) 'null? (null? a))
-(define-traced-primitive (pair?& a) 'pair? (pair? a))
-
-(define-traced-primitive (range& n) 'range (range n))
-
 (define-syntax-rule (lambda& forms ...)
   (val->trace (lambda forms ...)))
 
+(define-syntax null& (λ (stx) #'(datum . ())))
+
+(define-traced-primitive (not& a)    'not   (not a))
+(define-traced-primitive (+& a b)    '+     (+ a b))
+(define-traced-primitive (-& a b)    '-     (- a b))
+(define-traced-primitive (*& a b)    '*     (* a b))
+(define-traced-primitive (/& a b)    '/     (/ a b))
+(define-traced-primitive (=& a b)    '=     (= a b))
+(define-traced-primitive (<& a b)    '<     (< a b))
+(define-traced-primitive (>& a b)    '>     (> a b))
+(define-traced-primitive (<=& a b)   '<=    (<= a b))
+(define-traced-primitive (>=& a b)   '>=    (>= a b))
+(define-traced-primitive (expt& a b) 'expt  (expt a b))
+(define-traced-primitive (exp& a)    'exp   (exp a))
+(define-traced-primitive (log& a)    'log   (log a))
+(define-traced-primitive (cons& a b) 'cons  (cons a b))
+(define-traced-primitive (car& a)    'car   (car a))
+(define-traced-primitive (cdr& a)    'cdr   (cdr a))
+(define-traced-primitive (null?& a)  'null? (null? a))
+(define-traced-primitive (pair?& a)  'pair? (pair? a))
+(define-traced-primitive (range& n)  'range (range n))
+
+(define-traced (list& . xs) xs)
+
+(define trace-display& (val->trace trace-display))
+
+;; ----------------------------------------
+
 (module+ test
+  (test-case "datum"
+    (define d (datum . 1.0))
+    (check-equal? (top-val d) 1.0)
+    (check-equal? (top-expr d) '(constant 1.0))
+    (check-equal? (length (trace-items d)) 1))
+
+  (test-case "app"
+    (check-match
+     (app not& (datum . #t))
+     (trace (list (assignment _ _ #f) (assignment _ _ _) ...))))
+
   ;; property-based tests to check that the traced operators produce
   ;; the same result as their counterparts
   (test-case "traced ops"
