@@ -1,5 +1,8 @@
 #lang s-exp "trace-lang.rkt"
 
+(provide map
+         foldl)
+
 (define (map f xs)
   (if (null? xs)
       null
