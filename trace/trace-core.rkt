@@ -164,10 +164,6 @@
 (define-syntax-rule (lambda& forms ...)
   (val->trace (lambda forms ...)))
 
-;; map, fold etc ...
-
-;; ...
-
 (module+ test
   ;; property-based tests to check that the traced operators produce
   ;; the same result as their counterparts
