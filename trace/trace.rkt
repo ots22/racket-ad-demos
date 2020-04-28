@@ -11,6 +11,9 @@
 
          (struct-out trace)
          make-trace
+         empty-trace?
+         non-empty-trace?
+
          trace-get
          trace-add
          trace-append
@@ -81,11 +84,18 @@
   #:methods gen:custom-write
   [(define write-proc
      (λ (x port mode)
-       (write (val (top x)) port)))])
+       (when (non-empty-trace? x)
+         (write (val (top x)) port))))])
 
 ;; alternative constructor
 (define (make-trace . items)
   (trace items))
+
+(define (empty-trace? t)
+  (null? (trace-items t)))
+
+(define (non-empty-trace? t)
+  (not (empty-trace? t)))
 
 ;; Extract the trace corresponding to an id i from the trace tr, if it
 ;; is present, or false
@@ -161,9 +171,11 @@
 ;;
 ;; trace-remove-duplicates : trace? -> trace?
 (define (trace-remove-duplicates t)
-  (define head (top t))
-  (trace (cons head (remove-duplicates-before
-                     (cdr (trace-items t)) #:key assignment-id))))
+  (if (empty-trace? t)
+      t
+      (let ([head (top t)])
+        (trace (cons head (remove-duplicates-before
+                           (cdr (trace-items t)) #:key assignment-id))))))
 
 (module+ test
   (define a (make-assignment #:id 'a #:val 0))
@@ -205,7 +217,7 @@
 (define (val->trace v)
   (make-trace (make-assignment #:val v)))
 
-;; The head assignment in trace t
+;; The head assignment in trace t (which must be non-empty)
 ;;
 ;; top : trace? -> assignment?
 (define (top t) (car (trace-items t)))
@@ -233,9 +245,11 @@
                                                     (set-add seen x)))
                                         xs))]
       [_ seen]))
-  (let ([seen (rec t (set (top-id t)))])
-    (trace (filter (λ (a) (set-member? seen (id a)))
-                   (trace-items t)))))
+  (if (empty-trace? t)
+      t
+      (let ([seen (rec t (set (top-id t)))])
+        (trace (filter (λ (a) (set-member? seen (id a)))
+                       (trace-items t))))))
 
 (module+ test
   (test-case "trace-prune"

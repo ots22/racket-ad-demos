@@ -15,7 +15,7 @@
          lambda&
          null&
          not&
-         +& 
+         +&
          -&
          *&
          /&
@@ -38,7 +38,9 @@
 
 (require racket/syntax
          quickcheck
-         (for-syntax racket/syntax)
+         (for-syntax racket/syntax
+                     syntax/parse
+                     (only-in racket/function const))
          "trace.rkt"
          "util.rkt")
 
@@ -51,36 +53,49 @@
 
 ;; ...
 
+
+;; Helper for define-traced-primitive and define-traced.
+;;
+;; Given a dotted argument list, returns a single trace which is a
+;; concatenation of the traces of each argument id in the correct
+;; (reverse) order
+;;
+(define-for-syntax (get-all-arg-traces lambda-list)
+  (syntax-case lambda-list ()
+    [(args ...)
+     (with-syntax ([(rev-args ...) (syntax-reverse #'(args ...))])
+       #'(trace-append rev-args ...))]
+
+    [(args ... . rest-args)
+     (with-syntax ([(rev-args ...) (syntax-reverse #'(args ...))])
+       #'(trace-append (apply trace-append (reverse rest-args))
+                       rev-args ...))]))
+
+;; (define-for-syntax (get-all-arg-ids stx)
+;;   (syntax-case stx ()
+;;     [(args ...) #'(arg-ids ... '())]
+;;     [(args ... . rest-args) #'(ar)
+
 (define-syntax (define-traced-primitive stx)
   (syntax-case stx ()
     ;; f        : id?
     ;; args ... : trace? ...
     ;; body ... : expression? ...
     [(_ (f args ... . rest-args) f-name body ...)
-
-     ;; note the branching in the patterns, for the cases where rest-args
-     ;; is a symbol, or null (dotted argument list)
-
-     (with-syntax* ([(arg-vals ...) #'((top-val args) ...)]
-                    [rest-arg-vals #'(map top-val rest-args)]
-                    [(arg-ids ...) #'((top-id args) ...)]
-                    [rest-arg-ids  #'(map top-id rest-args)]
-                    [(all-arg-ids-pat ...)
-                     (if (null? (syntax->datum #'rest-args))
-                         #'(arg-ids ... '())
-                         #'(arg-ids ... rest-arg-ids))]
-                    [arg-let (if (null? (syntax->datum #'rest-args))
-                                 #'([args arg-vals] ...)
-                                 #'([args arg-vals]
-                                    ... [rest-args rest-arg-vals]))]
-                    [(rev-args ...) (syntax-reverse #'(args ... ))]
-                    [arg-traces-pat #'(trace-append rev-args ...)]
-                    [all-arg-traces-pat
-                     (if (null? (syntax->datum #'rest-args))
-                         #'arg-traces-pat
-                         #'(trace-append
-                            (apply trace-append (reverse rest-args))
-                            arg-traces-pat))])
+     (with-syntax*
+       ([(arg-vals ...) #'((top-val args) ...)]
+        [rest-arg-vals #'(map top-val rest-args)]
+        [(arg-ids ...) #'((top-id args) ...)]
+        [rest-arg-ids  #'(map top-id rest-args)]
+        [(all-arg-ids-pat ...)
+         (if (null? (syntax->datum #'rest-args))
+             #'(arg-ids ... '())
+             #'(arg-ids ... rest-arg-ids))]
+        [arg-let (if (null? (syntax->datum #'rest-args))
+                     #'([args arg-vals] ...)
+                     #'([args arg-vals]
+                        ... [rest-args rest-arg-vals]))]
+        [all-arg-traces (get-all-arg-traces #'(args ... . rest-args))])
        #'(define f
            (val->trace
             (procedure-rename
@@ -88,42 +103,66 @@
                (let (;; shadow the actual args (which have trace annotations)
                      [result     (let arg-let body ...)]
                      ;; trace the arguments in reverse order
-                     [all-arg-traces all-arg-traces-pat]
+                     [arg-traces all-arg-traces]
                      [result-name (next-name)])
                  (trace-add
-                  all-arg-traces
+                  arg-traces
                   ;; add rest-args here
                   (make-assignment #:id   result-name
                                    #:expr (list* 'app f-name all-arg-ids-pat ...)
                                    #:val  result))))
              f-name))))]))
 
+
+;; The rest args to define-traced are received as a plain list of
+;; traces. This function returns a let binding form for a traced
+;; version of the list construction itself (used to shadow the
+;; rest-args parameter).
+;;
+;; Because rest-args is optional, a list of zero or one such bindings
+;; is returned, in fact.
+;;
+(define-for-syntax (get-rest-args-binding rest-args)
+  (syntax-case rest-args ()
+    [() #'()]
+    [rest-args #'((rest-args (foldl (top-val cons&) null& (reverse rest-args))))]))
+
+(define-for-syntax (get-args-contract lambda-list)
+  (syntax-case lambda-list ()
+    [(args ...)
+     (with-syntax ([(non-empty-traces ...)
+                    (map (const #'non-empty-trace?)
+                         (syntax-e #'(args ...)))])
+       #'(-> non-empty-traces ... non-empty-trace?))]
+
+    [(args ... . rest-args)
+     (with-syntax ([(non-empty-traces ...)
+                    (map (const #'non-empty-trace?)
+                         (syntax-e #'(args ...)))])
+       #'(->* (non-empty-traces ...)
+              ()
+              #:rest (listof non-empty-trace?)
+              non-empty-trace?))]))
+
 (define-syntax (define-traced stx)
   (syntax-case stx ()
     [(_ (f args ... . rest-args) body ...)
-     (with-syntax* ([(rev-args ...) (syntax-reverse #'(args ...))]
-                    [rev-args-trace
-                     (if (null? (syntax->datum #'rest-args))
-                         #'(trace-append rev-args ...)
-                         #'(trace-append
-                            (apply trace-append (reverse rest-args))
-                            rev-args ...))]
-                    [(rest-arg-let-binding ...)
-                     (if (null? (syntax->datum #'rest-args))
-                         #'()
-                         #'((rest-args (foldl (top-val cons&)
-                                              null&
-                                              (reverse rest-args)))))])
-       #'(define f
-           (val->trace
-            (procedure-rename
-             (lambda (args ... . rest-args)
-               (let* ([arg-traces rev-args-trace]
-                      rest-arg-let-binding ...
-                      [result-trace (let () body ...)])
-                 (trace-prune
-                  (trace-append result-trace arg-traces))))
-             'f))))]))
+     (with-syntax
+       ([all-arg-traces (get-all-arg-traces #'(args ... . rest-args))]
+        [(rest-args-binding ...) (get-rest-args-binding #'rest-args)]
+        [args-contract (get-args-contract #'(args ... . rest-args))]
+        ;; a new symbol with the same name as f (so that recursive
+        ;; definitions work correctly)
+        [f* (syntax->datum #'f)])
+       #'(define f (let ()
+                     (define/contract (f* args ... . rest-args)
+                       args-contract
+                       (let* ([arg-traces all-arg-traces]
+                              rest-args-binding ...
+                              [result-trace (let () body ...)])
+                         (trace-prune
+                          (trace-append result-trace arg-traces))))
+                     (val->trace f*))))]))
 
 ;; ----------------------------------------
 
@@ -185,9 +224,21 @@
     (check-equal? (length (trace-items d)) 1))
 
   (test-case "app"
-    (check-match
-     (app not& (datum . #t))
-     (trace (list (assignment _ _ #f) (assignment _ _ _) ...))))
+    (check-equal? (top-val (app not& (val->trace #t))) #f))
+
+  (test-case "definitions"
+    (define-traced (f) (val->trace 1))
+    (check-equal? (top-val (app f)) 1)
+
+    (define-traced (g x . xs) (val->trace 1))
+    (check-equal? (top-val (app g (val->trace 1))) 1)
+
+    (define-traced (h x) x)
+    ;; wrong number of arguments
+    (check-exn exn:fail? (λ () (app h)))
+    ;; invalid empty trace
+    (check-exn exn:fail? (λ () (app h (trace-append)))))
+
 
   ;; property-based tests to check that the traced operators produce
   ;; the same result as their counterparts
