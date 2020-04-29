@@ -71,49 +71,6 @@
        #'(trace-append (apply trace-append (reverse rest-args))
                        rev-args ...))]))
 
-;; (define-for-syntax (get-all-arg-ids stx)
-;;   (syntax-case stx ()
-;;     [(args ...) #'(arg-ids ... '())]
-;;     [(args ... . rest-args) #'(ar)
-
-(define-syntax (define-traced-primitive stx)
-  (syntax-case stx ()
-    ;; f        : id?
-    ;; args ... : trace? ...
-    ;; body ... : expression? ...
-    [(_ (f args ... . rest-args) f-name body ...)
-     (with-syntax*
-       ([(arg-vals ...) #'((top-val args) ...)]
-        [rest-arg-vals #'(map top-val rest-args)]
-        [(arg-ids ...) #'((top-id args) ...)]
-        [rest-arg-ids  #'(map top-id rest-args)]
-        [(all-arg-ids-pat ...)
-         (if (null? (syntax->datum #'rest-args))
-             #'(arg-ids ... '())
-             #'(arg-ids ... rest-arg-ids))]
-        [arg-let (if (null? (syntax->datum #'rest-args))
-                     #'([args arg-vals] ...)
-                     #'([args arg-vals]
-                        ... [rest-args rest-arg-vals]))]
-        [all-arg-traces (get-all-arg-traces #'(args ... . rest-args))])
-       #'(define f
-           (val->trace
-            (procedure-rename
-             (lambda (args ... . rest-args)
-               (let (;; shadow the actual args (which have trace annotations)
-                     [result     (let arg-let body ...)]
-                     ;; trace the arguments in reverse order
-                     [arg-traces all-arg-traces]
-                     [result-name (next-name)])
-                 (trace-add
-                  arg-traces
-                  ;; add rest-args here
-                  (make-assignment #:id   result-name
-                                   #:expr (list* 'app f-name all-arg-ids-pat ...)
-                                   #:val  result))))
-             f-name))))]))
-
-
 ;; The rest args to define-traced are received as a plain list of
 ;; traces. This function returns a let binding form for a traced
 ;; version of the list construction itself (used to shadow the
@@ -143,6 +100,31 @@
               ()
               #:rest (listof non-empty-trace?)
               non-empty-trace?))]))
+
+(define-syntax (define-traced-primitive stx)
+  (syntax-case stx ()
+    ;; f        : id?
+    ;; args ... : trace? ...
+    ;; f-name   : symbol?
+    ;; body ... : expression? ...
+    [(_ (f args ...) f-name body ...)
+     (with-syntax (;; build up the trace of the arguments in reverse order
+                   [all-arg-traces (get-all-arg-traces #'(args ...))]
+                   [args-contract (get-args-contract #'(args ...))])
+       #'(define f
+           (let ()
+             (define/contract (f* args ...)
+               args-contract
+               (let (;; shadow the actual args (which have trace annotations)
+                     [result     (let ([args (top-val args)] ...) body ...)]
+                     [arg-traces all-arg-traces]
+                     [result-name (next-name)])
+                 (trace-add
+                  arg-traces
+                  (make-assignment #:id   result-name
+                                   #:expr (list 'app f-name (top-id args) ...)
+                                   #:val  result))))
+             (val->trace (procedure-rename f* f-name)))))]))
 
 (define-syntax (define-traced stx)
   (syntax-case stx ()
