@@ -36,26 +36,19 @@
          list&
          trace-display&)
 
-(require racket/syntax
-         quickcheck
-         (for-syntax racket/syntax
+(require (for-syntax racket/syntax
                      syntax/parse
                      (only-in racket/function const))
          "trace.rkt"
          "util.rkt")
 
-(module+ test
-  (require rackunit
-           rackunit/quickcheck))
+;; ----------------------------------------
+;; Macros for defining functions and primitive operations
 
-;; define-traced and define-traced-primitive are helper macros that
-;; emit definition of functions that consume and emit traces.
-
-;; ...
-
-
-;; Helper for define-traced-primitive and define-traced.
 ;;
+;; Helpers
+;;
+
 ;; Given a dotted argument list, returns a single trace which is a
 ;; concatenation of the traces of each argument id in the correct
 ;; (reverse) order
@@ -70,19 +63,6 @@
      (with-syntax ([(rev-args ...) (syntax-reverse #'(args ...))])
        #'(trace-append (apply trace-append (reverse rest-args))
                        rev-args ...))]))
-
-;; The rest args to define-traced are received as a plain list of
-;; traces. This function returns a let binding form for a traced
-;; version of the list construction itself (used to shadow the
-;; rest-args parameter).
-;;
-;; Because rest-args is optional, a list of zero or one such bindings
-;; is returned, in fact.
-;;
-(define-for-syntax (get-rest-args-binding rest-args)
-  (syntax-case rest-args ()
-    [() #'()]
-    [rest-args #'((rest-args (foldl (top-val cons&) null& (reverse rest-args))))]))
 
 (define-for-syntax (get-args-contract lambda-list)
   (syntax-case lambda-list ()
@@ -101,6 +81,29 @@
               #:rest (listof non-empty-trace?)
               non-empty-trace?))]))
 
+;; The rest args to define-traced are received as a plain list of
+;; traces. This function returns a let binding form for a traced
+;; version of the list construction itself (used to shadow the
+;; rest-args parameter).
+;;
+;; Because rest-args is optional, a list of zero or one such bindings
+;; is returned, in fact.
+;;
+(define-for-syntax (get-rest-args-binding rest-args)
+  (syntax-case rest-args ()
+    [() #'()]
+    [rest-args #'((rest-args (foldl (top-val cons&) null& (reverse rest-args))))]))
+
+
+;; define-traced-primitive defines a traced primitive operation
+;;
+;; - The function defined takes traces as arguments, and returns a
+;;   trace
+;; - The body is expressed in terms of arguments which are plain
+;;   values (not traces), and returning a plain value
+;; - The operation is recorded on the trace with the name passed as
+;;   the symbol f-name
+;;
 (define-syntax (define-traced-primitive stx)
   (syntax-case stx ()
     ;; f        : id?
@@ -126,6 +129,17 @@
                                    #:val  result))))
              (val->trace (procedure-rename f* f-name)))))]))
 
+;; define-traced defines a traced function
+;;
+;; - The function defined takes traces as arguments, and returns a
+;;   trace
+;; - The body is expressed in terms of arguments which are traces, and
+;;   returning a trace
+;; - The trace returned will be in terms of primitive operations (it
+;;   will not show up on the trace itself
+;; - This form implements the define form of trace-lang (for the most
+;;   part - along with variable definition)
+;;
 (define-syntax (define-traced stx)
   (syntax-case stx ()
     [(_ (f args ... . rest-args) body ...)
@@ -199,6 +213,10 @@
 ;; ----------------------------------------
 
 (module+ test
+  (require rackunit
+           quickcheck
+           rackunit/quickcheck)
+
   (test-case "datum"
     (define d (datum . 1.0))
     (check-equal? (top-val d) 1.0)
