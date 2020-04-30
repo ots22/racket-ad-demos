@@ -168,23 +168,19 @@
 (define-syntax-rule (app fn args ...)
   (#%app (top-val fn) args ...))
 
-(define-syntax (define& stx)
-  (syntax-case stx ()
+(define-syntax define&
+  (syntax-rules ()
     [(_ (id args ... . rest-args) body ...)
-     #'(define-traced (id args ... . rest-args) body ...)]
-    [(_ id expr) #'(define id expr)]))
+     (define-traced (id args ... . rest-args) body ...)]
+    [(_ id expr) (define id expr)]))
 
-(define-syntax (if& stx)
-  (syntax-case stx ()
-    [(_ test-expr then-expr else-expr)
-     #'(if (top-val test-expr)
-           then-expr
-           else-expr)]))
+(define-syntax-rule (if& test-expr then-expr else-expr)
+  (if (top-val test-expr) then-expr else-expr))
 
 (define-syntax-rule (lambda& forms ...)
   (val->trace (lambda forms ...)))
 
-(define-syntax null& (λ (stx) #'(datum . ())))
+(define null& (val->trace null))
 
 (define-traced-primitive (not& a)    'not   (not a))
 (define-traced-primitive (+& a b)    '+     (+ a b))
