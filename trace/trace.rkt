@@ -11,7 +11,7 @@
 
          (struct-out trace)
          make-trace
-         empty-trace?
+         trace-empty?
          non-empty-trace?
 
          trace-get
@@ -91,11 +91,12 @@
 (define (make-trace . items)
   (trace items))
 
-(define (empty-trace? t)
+(define (trace-empty? t)
   (null? (trace-items t)))
 
 (define (non-empty-trace? t)
-  (not (empty-trace? t)))
+  (and (trace? t)
+       (not (trace-empty? t))))
 
 ;; Extract the trace corresponding to an id i from the trace tr, if it
 ;; is present, or false
@@ -171,7 +172,7 @@
 ;;
 ;; trace-remove-duplicates : trace? -> trace?
 (define (trace-remove-duplicates t)
-  (if (empty-trace? t)
+  (if (trace-empty? t)
       t
       (let ([head (top t)])
         (trace (cons head (remove-duplicates-before
@@ -245,7 +246,7 @@
                                                     (set-add seen x)))
                                         xs))]
       [_ seen]))
-  (if (empty-trace? t)
+  (if (trace-empty? t)
       t
       (let ([seen (rec t (set (top-id t)))])
         (trace (filter (λ (a) (set-member? seen (id a)))
