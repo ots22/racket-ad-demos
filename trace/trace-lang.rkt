@@ -6,45 +6,42 @@
 (provide #%module-begin
          #%top
          #%top-interaction
-         (rename-out (datum #%datum))
-         (rename-out (app #%app))
-         (rename-out (=& =))
-         (rename-out (<&  <))
-         (rename-out (<=& <=))
-         (rename-out (>&  >))
-         (rename-out (>=& >=))
-         (rename-out (+& +))
-         (rename-out (-& -))
-         (rename-out (*& *))
-         (rename-out (/& /))
-         (rename-out (expt& expt))
-         (rename-out (exp& exp))
-         (rename-out (log& log))
-
-         (rename-out (list& list))
-         (rename-out (cons& cons))
-
-         (rename-out (car& car))
-         (rename-out (cdr& cdr))
-         
-         (rename-out (null?& null?))
-         (rename-out (pair?& pair?))
-         (rename-out (null& null))
-
-         (rename-out (range& range))
-
-         (rename-out (define& define))
-         (rename-out (if& if))
-
-         (rename-out (not& not))
-         
-         (rename-out (and& and))
-         
-         (rename-out (trace-display& trace-display))
-
-         (rename-out (lambda& lambda))
-         (rename-out (lambda& λ))
 
          provide
          all-defined-out
-         require)
+         require
+
+         (rename-out [datum #%datum]
+                     [app #%app]
+                     [=& =]
+                     [<&  <]
+                     [<=& <=]
+                     [>&  >]
+                     [>=& >=]
+                     [+& +]
+                     [-& -]
+                     [*& *]
+                     [/& /]
+                     [expt& expt]
+                     [exp& exp]
+                     [log& log]
+
+                     [list& list]
+                     [cons& cons]
+                     [car& car]
+                     [cdr& cdr]
+                     [null?& null?]
+                     [pair?& pair?]
+                     [null& null]
+
+                     [range& range]
+
+                     [define& define]
+                     [if& if]
+                     [not& not]
+                     [and& and]
+
+                     [trace-display& trace-display]
+
+                     [lambda& lambda]
+                     [lambda& λ]))
