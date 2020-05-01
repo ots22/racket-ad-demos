@@ -8,9 +8,9 @@
 ;; The custom #%datum and #%app for the lang are defined here as datum
 ;; and app.
 
-(provide datum app define& if& lambda& null& not& +& -& *& /& =& <& >&
-<=& >=& expt& exp& log& cons& car& cdr& null?& pair?& range& list&
-trace-display&)
+(provide datum app define& if& and& lambda& null& not& +& -& *& /& =&
+<& >& <=& >=& expt& exp& log& cons& car& cdr& null?& pair?& range&
+list& trace-display&)
 
 (require (for-syntax racket/syntax
                      syntax/parse
@@ -156,6 +156,9 @@ trace-display&)
 
 (define-syntax-rule (if& test-expr then-expr else-expr)
   (if (top-val test-expr) then-expr else-expr))
+
+(define-syntax-rule (and& a b)
+  (if& a b (val->trace #f)))
 
 (define-syntax-rule (lambda& forms ...)
   (val->trace (lambda forms ...)))

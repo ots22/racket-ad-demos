@@ -3,8 +3,6 @@
 (require "trace.rkt"
          "trace-core.rkt")
 
-(define one 1)
-
 (provide #%module-begin
          #%top
          #%top-interaction
@@ -40,7 +38,7 @@
 
          (rename-out (not& not))
          
-         and
+         (rename-out (and& and))
          
          (rename-out (trace-display& trace-display))
 
