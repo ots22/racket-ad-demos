@@ -8,78 +8,45 @@
 ;; The custom #%datum and #%app for the lang are defined here as datum
 ;; and app.
 
-(provide datum
-         app
-         define&
-         if&
-         lambda&
-         null&
-         not&
-         +&
-         -&
-         *&
-         /&
-         =&
-         <&
-         >&
-         <=&
-         >=&
-         expt&
-         exp&
-         log&
-         cons&
-         car&
-         cdr&
-         null?&
-         pair?&
-         range&
-         list&
-         trace-display&)
+(provide datum app define& if& lambda& null& not& +& -& *& /& =& <& >&
+<=& >=& expt& exp& log& cons& car& cdr& null?& pair?& range& list&
+trace-display&)
 
 (require (for-syntax racket/syntax
                      syntax/parse
-                     (only-in racket/function const))
+                     (only-in racket/function const)
+                     "syntax-classes.rkt")
          "trace.rkt"
          "util.rkt")
 
 ;; ----------------------------------------
-;; Macros for defining functions and primitive operations
-
+;; * Macros for defining functions and primitive operations
 ;;
-;; Helpers
-;;
+;; ** Helpers
 
 ;; Given a dotted argument list, returns a single trace which is a
 ;; concatenation of the traces of each argument id in the correct
 ;; (reverse) order
 ;;
-(define-for-syntax (get-all-arg-traces lambda-list)
-  (syntax-case lambda-list ()
-    [(args ...)
-     (with-syntax ([(rev-args ...) (syntax-reverse #'(args ...))])
-       #'(trace-append rev-args ...))]
+(define-for-syntax (get-all-arg-traces stx)
+  (syntax-parse stx
+    [args:lambda-list
+     #:with (rev-args ...) (syntax-reverse #'(args.args ...))
+     (syntax-parse (attribute args.rest-args)
+       [()   #'(trace-append rev-args ...)]
+       [_:id #'(trace-append (apply trace-append (reverse args.rest-args))
+                             rev-args ...)])]))
 
-    [(args ... . rest-args)
-     (with-syntax ([(rev-args ...) (syntax-reverse #'(args ...))])
-       #'(trace-append (apply trace-append (reverse rest-args))
-                       rev-args ...))]))
-
-(define-for-syntax (get-args-contract lambda-list)
-  (syntax-case lambda-list ()
-    [(args ...)
-     (with-syntax ([(non-empty-traces ...)
-                    (map (const #'non-empty-trace?)
-                         (syntax-e #'(args ...)))])
-       #'(-> non-empty-traces ... non-empty-trace?))]
-
-    [(args ... . rest-args)
-     (with-syntax ([(non-empty-traces ...)
-                    (map (const #'non-empty-trace?)
-                         (syntax-e #'(args ...)))])
-       #'(->* (non-empty-traces ...)
-              ()
-              #:rest (listof non-empty-trace?)
-              non-empty-trace?))]))
+(define-for-syntax (get-args-contract stx)
+  (syntax-parse stx
+    [args:lambda-list
+     #:with (non-empty-traces ...) (map (const #'non-empty-trace?)
+                                        (syntax-e #'(args.args ...)))
+     (syntax-parse (attribute args.rest-args)
+       [()   #'(-> non-empty-traces ... non-empty-trace?)]
+       [_:id #'(->* (non-empty-traces ...) ()
+                    #:rest (listof non-empty-trace?)
+                    non-empty-trace?)])]))
 
 ;; The rest args to define-traced are received as a plain list of
 ;; traces. This function returns a let binding form for a traced
@@ -90,10 +57,12 @@
 ;; is returned, in fact.
 ;;
 (define-for-syntax (get-rest-args-binding rest-args)
-  (syntax-case rest-args ()
+  (syntax-parse rest-args
     [() #'()]
-    [rest-args #'((rest-args (foldl (top-val cons&) null& (reverse rest-args))))]))
+    [rargs #'((rargs (foldl (top-val cons&) null& (reverse rargs))))]))
 
+;;
+;; ** define-traced-primitive and define-traced
 
 ;; define-traced-primitive defines a traced primitive operation
 ;;
@@ -103,17 +72,19 @@
 ;;   values (not traces), and returning a plain value
 ;; - The operation is recorded on the trace with the name passed as
 ;;   the symbol f-name
+;; - Dotted argument lists are not supported
 ;;
 (define-syntax (define-traced-primitive stx)
-  (syntax-case stx ()
-    ;; f        : id?
-    ;; args ... : trace? ...
-    ;; f-name   : symbol?
-    ;; body ... : expression? ...
-    [(_ (f args ...) f-name body ...)
+  (syntax-parse stx
+    [(_ (f:id args:id ...) f-name:quoted-symbol body:expr ...)
      (with-syntax (;; build up the trace of the arguments in reverse order
                    [all-arg-traces (get-all-arg-traces #'(args ...))]
-                   [args-contract (get-args-contract #'(args ...))])
+                   [args-contract (get-args-contract #'(args ...))]
+                   ;; a new symbol with the same name as f (so that
+                   ;; the function has the expected procedure-name
+                   ;; while keeping recursive definitions working as
+                   ;; expected)
+                   [f* (syntax->datum #'f-name.id)])
        #'(define f
            (let ()
              (define/contract (f* args ...)
@@ -127,7 +98,7 @@
                   (make-assignment #:id   result-name
                                    #:expr (list 'app f-name (top-id args) ...)
                                    #:val  result))))
-             (val->trace (procedure-rename f* f-name)))))]))
+             (val->trace f*))))]))
 
 ;; define-traced defines a traced function
 ;;
@@ -139,16 +110,18 @@
 ;;   will not show up on the trace itself
 ;; - This form implements the define form of trace-lang (for the most
 ;;   part - along with variable definition)
+;; - Dotted argument lists are supported
 ;;
 (define-syntax (define-traced stx)
-  (syntax-case stx ()
-    [(_ (f args ... . rest-args) body ...)
+  (syntax-parse stx
+    [(_ (f:id args:id ... . rest-args:id*) body:expr ...)
      (with-syntax
        ([all-arg-traces (get-all-arg-traces #'(args ... . rest-args))]
         [(rest-args-binding ...) (get-rest-args-binding #'rest-args)]
         [args-contract (get-args-contract #'(args ... . rest-args))]
-        ;; a new symbol with the same name as f (so that recursive
-        ;; definitions work correctly)
+        ;; a new symbol with the same name as f (so that the function
+        ;; has the expected procedure-name while keeping recursive
+        ;; definitions working as expected)
         [f* (syntax->datum #'f)])
        #'(define f (let ()
                      (define/contract (f* args ... . rest-args)
@@ -161,6 +134,7 @@
                      (val->trace f*))))]))
 
 ;; ----------------------------------------
+;; Definitions for trace-lang
 
 (define-syntax-rule (datum . d)
   (val->trace (#%datum . d)))
@@ -168,11 +142,17 @@
 (define-syntax-rule (app fn args ...)
   (#%app (top-val fn) args ...))
 
-(define-syntax define&
-  (syntax-rules ()
-    [(_ (id args ... . rest-args) body ...)
-     (define-traced (id args ... . rest-args) body ...)]
-    [(_ id expr) (define id expr)]))
+(define-syntax (define& stx)
+  (syntax-parse stx
+    ;; Procedure definition
+    ;;
+    ;; Match forms like (define (f args ... . rest-args) body ...)
+    [(_ ((~var f id #:role "procedure name") . args:lambda-list)
+        (~describe "procedure body" (~seq body:expr ...+)))
+     #'(define-traced (f args.args ... . args.rest-args) body ...)]
+
+    ;; Variable definition
+    [(_ id:id form:expr) #'(define id form)]))
 
 (define-syntax-rule (if& test-expr then-expr else-expr)
   (if (top-val test-expr) then-expr else-expr))
@@ -207,6 +187,7 @@
 (define trace-display& (val->trace trace-display))
 
 ;; ----------------------------------------
+;; Tests
 
 (module+ test
   (require rackunit
@@ -229,12 +210,14 @@
     (define-traced (g x . xs) (val->trace 1))
     (check-equal? (top-val (app g (val->trace 1))) 1)
 
+    ;; curried function definition not yet supported
+    (check-exn exn:fail? (λ () (expand #'(define& ((f) x) x) (void))))
+
     (define-traced (h x) x)
     ;; wrong number of arguments
     (check-exn exn:fail? (λ () (app h)))
     ;; invalid empty trace
     (check-exn exn:fail? (λ () (app h (trace-append)))))
-
 
   ;; property-based tests to check that the traced operators produce
   ;; the same result as their counterparts
