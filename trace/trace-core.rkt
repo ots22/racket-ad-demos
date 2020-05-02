@@ -15,7 +15,8 @@ list& trace-display&)
 (require (for-syntax racket/syntax
                      syntax/parse
                      (only-in racket/function const)
-                     "syntax-classes.rkt")
+                     "syntax-classes.rkt"
+                     (only-in "util.rkt" syntax-reverse))
          "trace.rkt"
          "util.rkt")
 

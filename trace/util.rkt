@@ -12,7 +12,7 @@
          remove-duplicates-before
          dict-list-append
          upd-adj
-         (for-syntax syntax-reverse))
+         syntax-reverse)
 
 (require racket/syntax
          rackunit
@@ -118,7 +118,7 @@
 ;;
 ;; Giving a syntax object comprising a list, return a new syntax
 ;; object otherwise identical but with this list reversed.
-(define-for-syntax (syntax-reverse stx)
+(define (syntax-reverse stx)
   (datum->syntax stx (reverse (syntax->list stx))))
 
 ;; Like remove-duplicates, but the *last* occurrence of any duplicate
