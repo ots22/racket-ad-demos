@@ -17,7 +17,8 @@
 (define-syntax-class id*
   #:description "identifier (or null)"
   #:opaque
-  (pattern (~or* x:id ())))
+  (pattern id:id #:attr [maybe-id 1] (list #'id))
+  (pattern ()    #:attr [maybe-id 1] '()))
 
 (define-syntax-class quoted-symbol
   #:description "quoted symbol"
@@ -34,6 +35,7 @@
             ~! (~parse ((~var args id #:role "procedure argument") ...)
                        #'(args-maybe-valid ...))
             ~rest (~var rest-args id* #:role "procedure rest argument"))
+           #:attr [maybe-rest-args 1] (attribute rest-args.maybe-id)
            #:fail-unless
            (distinct-ids? (flatten (syntax-e #'(args ... . rest-args))))
            "duplicate argument identifier"))

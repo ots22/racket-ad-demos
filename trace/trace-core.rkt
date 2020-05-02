@@ -27,39 +27,24 @@ list& trace-display&)
 ;; Given a dotted argument list, returns a single trace which is a
 ;; concatenation of the traces of each argument id in the correct
 ;; (reverse) order
-;;
 (define-for-syntax (get-all-arg-traces stx)
   (syntax-parse stx
     [args:lambda-list
      #:with (rev-args ...) (syntax-reverse #'(args.args ...))
-     (syntax-parse (attribute args.rest-args)
-       [()   #'(trace-append rev-args ...)]
-       [_:id #'(trace-append (apply trace-append (reverse args.rest-args))
-                             rev-args ...)])]))
+     #'(trace-append (apply trace-append (reverse args.maybe-rest-args)) ...
+                     rev-args ...)]))
 
+;; Syntax for the contract on a traced function, given its argument list
 (define-for-syntax (get-args-contract stx)
   (syntax-parse stx
     [args:lambda-list
      #:with (non-empty-traces ...) (map (const #'non-empty-trace?)
                                         (syntax-e #'(args.args ...)))
-     (syntax-parse (attribute args.rest-args)
-       [()   #'(-> non-empty-traces ... non-empty-trace?)]
-       [_:id #'(->* (non-empty-traces ...) ()
-                    #:rest (listof non-empty-trace?)
-                    non-empty-trace?)])]))
-
-;; The rest args to define-traced are received as a plain list of
-;; traces. This function returns a let binding form for a traced
-;; version of the list construction itself (used to shadow the
-;; rest-args parameter).
-;;
-;; Because rest-args is optional, a list of zero or one such bindings
-;; is returned, in fact.
-;;
-(define-for-syntax (get-rest-args-binding rest-args)
-  (syntax-parse rest-args
-    [() #'()]
-    [rargs #'((rargs (foldl (top-val cons&) null& (reverse rargs))))]))
+     (if (null? (attribute args.maybe-rest-args))
+         #'(-> non-empty-traces ... non-empty-trace?)
+         #'(->* (non-empty-traces ...) ()
+                #:rest (listof non-empty-trace?)
+                non-empty-trace?))]))
 
 ;;
 ;; ** define-traced-primitive and define-traced
@@ -79,6 +64,7 @@ list& trace-display&)
     [(_ (f:id args:id ...) f-name:quoted-symbol body:expr ...)
      (with-syntax (;; build up the trace of the arguments in reverse order
                    [all-arg-traces (get-all-arg-traces #'(args ...))]
+                   ;;
                    [args-contract (get-args-contract #'(args ...))]
                    ;; a new symbol with the same name as f (so that
                    ;; the function has the expected procedure-name
@@ -117,9 +103,21 @@ list& trace-display&)
     [(_ (f:id args:id ... . rest-args:id*) body:expr ...)
      (with-syntax
        ([all-arg-traces (get-all-arg-traces #'(args ... . rest-args))]
-        [(rest-args-binding ...) (get-rest-args-binding #'rest-args)]
+        ;;
+        ;; The rest args to define-traced are received as a plain list
+        ;; of traces.  Convert this to a let binding form for a traced
+        ;; version of the list construction itself (used to shadow the
+        ;; rest-args parameter).
+        ;;
+        ;; Because rest-args may be null, use the 'maybe-id'
+        ;; attribute, which is a list of at most one id.
+        [(rest-args-binding ...)
+         #'((rest-args.maybe-id
+             (foldl (top-val cons&) null& (reverse rest-args.maybe-id))) ...)]
+        ;;
         [args-contract (get-args-contract #'(args ... . rest-args))]
-        ;; a new symbol with the same name as f (so that the function
+        ;;
+        ;; A new symbol with the same name as f (so that the function
         ;; has the expected procedure-name while keeping recursive
         ;; definitions working as expected)
         [f* (syntax->datum #'f)])
