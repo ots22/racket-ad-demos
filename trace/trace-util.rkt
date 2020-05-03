@@ -1,17 +1,13 @@
-#lang s-exp "trace-lang.rkt"
+#lang racket
 
-(provide map
-         foldl)
+(provide cons->trace)
 
-(define (map f xs)
-  (if (null? xs)
-      null
-      (cons (f (car xs))
-            (map f (cdr xs)))))
+(require "trace.rkt"
+         "trace-core.rkt")
 
-(define (foldl f x0 xs) 
-  (if (null? xs)
-      x0
-      (foldl f 
-             (f (car xs) x0)
-             (cdr xs))))
+(define (cons->trace x)
+  (cond
+    [(null? x)  null&]
+    [(pair? x)  (app cons& (cons->trace (car x)) (cons->trace (cdr x)))]
+    [(trace? x) x]
+    [else       (val->trace x)]))
