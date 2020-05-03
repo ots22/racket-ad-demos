@@ -11,12 +11,6 @@
          "primitive-partial.rkt"
          "cons-arithmetic.rkt")
 
-;; (module+ test
-;;   (require rackunit
-;;            quickcheck
-;;            rackunit/quickcheck
-;;            "test-util.rkt"))
-
 ;; ----------------------------------------
 ;; Reverse mode AD
 
@@ -124,27 +118,22 @@
 ;; The Jacobian of f at xs, computed by reverse accumulation
 ;;
 ;; D/r : (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define D/r
-  (val->trace
-   (procedure-rename
-    (lambda (f)
-      (val->trace
-       (lambda xs
-         (let* ([indep-ids (map top-id xs)]
-                [result-tr (apply (top-val f) xs)]
-                [result (top-val result-tr)]
-                [result-flat (flatten result)]
-                [n (length result-flat)])
-           ;; flatten the result, seed each element in turn, reshape back to
-           ;; have the same shape as the result, then call A/r.  Accumulate
-           ;; into a list, then reshape back to have the shape of result.
-           ;; Finally, convert cons of traces to trace of conses
-           (cons->trace
-            (reshape result
-                     (for/list ([i (in-range n)])
-                       (let ([s (cons->trace
-                                 (reshape result
-                                          (map exact->inexact
-                                               (ind-list n i))))])
-                         (A/r result-tr indep-ids s)))))))))
-    'D/r)))
+(define& (D/r f)
+  (lambda& xs
+    (let* ([indep-ids (map top-id xs)]
+           [result-tr (apply (top-val f) xs)]
+           [result (top-val result-tr)]
+           [result-flat (flatten result)]
+           [n (length result-flat)])
+      ;; flatten the result, seed each element in turn, reshape back to
+      ;; have the same shape as the result, then call A/r.  Accumulate
+      ;; into a list, then reshape back to have the shape of result.
+      ;; Finally, convert cons of traces to trace of conses
+      (cons->trace
+       (reshape result
+                (for/list ([i (in-range n)])
+                  (let ([s (cons->trace
+                            (reshape result
+                                     (map exact->inexact
+                                          (ind-list n i))))])
+                    (A/r result-tr indep-ids s))))))))

@@ -10,17 +10,9 @@
          "primitive-partial.rkt"
          "cons-arithmetic.rkt")
 
-;; (module+ test
-;;   (require rackunit
-;;            quickcheck
-;;            rackunit/quickcheck
-;;            "test-util.rkt"))
-
 ;; takes an assignment, a trace, and an environment (mapping of values
 ;; to derivatives in the trace), and returns additional trace items
 ;; for computing the derivative.
-;;
-;; TODO/idea: pass I and D instead of tr and deriv-map
 ;;
 ;; deriv/f : assignment? symbol? (Listof symbol?) trace?
 ;;     (HashTable symbol? symbol?) -> trace?
@@ -49,39 +41,29 @@
 ;; The i'th partial derivative of f, evaluated as xs, computed by
 ;; forward accumulation
 ;;
-;; partial/f : integer? (trace? ... -> trace?) -> trace? ... -> trace?
-(define partial/f
-  (val->trace
-   (procedure-rename
-    (lambda (i f)
-      (val->trace
-       (lambda xs
-         (let* ([var       (top-id (list-ref xs (top-val i)))]
-                [indep-ids (map top-id xs)]
-                [result    (apply (top-val f) xs)])
-           (define-values (Dresult _)
-             (for/fold ([tr result]
-                        [deriv-map (hash)])
-                       ([a (reverse (trace-items result))])
-               (let* ([Da (deriv/f a var indep-ids tr deriv-map)])
-                 {values
-                  (trace-append Da tr)
-                  (hash-set deriv-map (id a) (top-id Da))})))
-           (trace-prune (trace-remove-duplicates Dresult))))))
-    'partial/f)))
+;; partial/f : trace? (trace? ... -> trace?) -> (Listof trace?) -> trace?
+(define& (partial/f i f)
+  (lambda& xs
+    (let* ([var       (top-id (list-ref xs (top-val i)))]
+           [indep-ids (map top-id xs)]
+           [result    (apply (top-val f) xs)])
+      (define-values (Dresult _)
+        (for/fold ([tr result]
+                   [deriv-map (hash)])
+                  ([a (reverse (trace-items result))])
+          (let* ([Da (deriv/f a var indep-ids tr deriv-map)])
+            {values
+             (trace-append Da tr)
+             (hash-set deriv-map (id a) (top-id Da))})))
+      (trace-prune (trace-remove-duplicates Dresult)))))
 
 ;; The Jacobian of f at xs, computed by forward accumulation
 ;;
 ;; D/f : (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define D/f
-  (val->trace
-   (procedure-rename
-    (lambda (f)
-      (val->trace
-       (lambda xs
-         (let* ([n (length xs)]
-                [Di (for/list ([i (range n)])
-                      (apply (top-val (app& partial/f (val->trace i) f))
-                             xs))])
-           (apply (top-val list&) Di)))))
-    'D/f)))
+(define& (D/f f)
+  (lambda& xs
+    (let* ([n (length xs)]
+           [Di (for/list ([i (range n)])
+                 (apply (top-val (app& partial/f (val->trace i) f))
+                        xs))])
+      (apply (top-val list&) Di))))
