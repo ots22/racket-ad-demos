@@ -5,7 +5,8 @@
          D/f
          D/r)
 
-(require "util.rkt"
+(require (for-syntax syntax/parse)
+         "util.rkt"
          "trace.rkt"
          "trace-core.rkt"
          "cons-arithmetic.rkt")
@@ -16,138 +17,49 @@
            rackunit/quickcheck
            "test-util.rkt"))
 
-;; the i'th partial derivative of f at xs
+;; the i'th partial derivative of op at xs
 ;;
-;; pderiv : integer? symbol? . (Listof trace?) -> trace?
-(define (pderiv i op . xs)
-  (define (err) (raise-arguments-error
-                 'pderiv
-                 "Can't take the requested partial derivative"
-                 "i" i
-                 "op" op))
-  (case op
-    [(+)        (case i
-                  [(0 1) (datum . 1.0)]
-                  [else  (err)])]
-    [(-)        (case i
-                  [(0)   (datum . 1.0)]
-                  [(1)   (datum . -1.0)]
-                  [else (err)])]
-    [(*)        (case i
-                  [(0)   (cadr xs)]
-                  [(1)   (car  xs)]
-                  [else  (err)])]
-    [(exp)      (case i
-                  [(0)   ((top-val exp&) (car xs))]
-                  [else  (err)])]
-    [(identity) (case i
-                  [(0)   (datum . 1.0)]
-                  [else  (err)])]
-    ;; add more cases here...
-
-    [else (err)]
-
-    ))
+;; partial : integer? symbol? -> . (Listof trace?) -> trace?
+(define/match ((partial i op) . xs)
+  [(0 '+ _) (val->trace 1.0)]
+  [(1 '+ _) (val->trace 1.0)]
+  ;;
+  [(0 '- _) (val->trace 1.0)]
+  [(1 '- _) (val->trace -1.0)]
+  ;;
+  [(0 '* xs) (second xs)]
+  [(1 '* xs) (first xs)]
+  ;;
+  [(0 'exp xs) (app exp& (first xs))]
+  ;;
+  [(0 'identity _) (val->trace 1.0)]
+  ;;
+  [(_ _ _) (raise-arguments-error
+            'partial
+            "Can't take the requested partial derivative"
+            "i" i
+            "op" op)])
 
 (module+ test
-  (test-case "pderiv"
+  (test-case "partial"
     (check-property
      (property ([x (gen-trace (choose-real -1e10 1e10))]
                 [y (gen-trace (choose-real -1e10 1e10))])
                (and
-                (top-val ((top-val =&) (pderiv 0 '* x y) y))
-                (top-val ((top-val =&) (pderiv 1 '* x y) x))
-                (raises? exn:fail:contract? (λ () (pderiv 2 '* x y))))))
+                (top-val (app =& ((partial 0 '*) x y) y))
+                (top-val (app =& ((partial 1 '*) x y) x))
+                (raises? exn:fail:contract? (λ () ((partial 2 '*) x y))))))
 
     (check-property
      (property ([x (gen-trace (choose-real -1e10 1e10))]
                 [y (gen-trace (choose-real -1e10 1e10))])
                (and
-                (top-val ((top-val =&) (pderiv 0 '+ x y) (datum . 1.0)))
-                (top-val ((top-val =&) (pderiv 1 '+ x y) (datum . 1.0)))
-                (raises? exn:fail:contract? (λ () (pderiv 2 '+ x y))))))
+                (top-val (app =& ((partial 0 '+) x y) (val->trace 1.0)))
+                (top-val (app =& ((partial 1 '+) x y) (val->trace 1.0)))
+                (raises? exn:fail:contract? (λ () ((partial 2 '+) x y))))))
 
-    (check-exn exn:fail:contract? (λ () (pderiv 0 'unknown 0.0)))))
+    (check-exn exn:fail:contract? (λ () ((partial 0 'unknown) 0.0)))))
 
-#|
-
-have lines like
-
-(assignment '%2 '(+ %0 %1) 3)
-
-what to do with them?
-
-Forward mode:
-  (assignment '%4 '(* %0 %3) 5)
-  (assignment '%3 '(+ %1 %2) 5)
-  (assignment '%2 3 3)
-  (assignment '%1 2 2)
-  (assignment '%0 1 1)
-
-- know %0 and %1 (say) are inputs (to the program)
-
-- %3 is not an input (it is a constant): can't tell this from the
-above, but know it from the function signature, which we have access
-to when taking gradient.
-
-Start, D[%0] = 1 (then D[%1] = 1, etc for each of the inputs in turn)
-
-Now, work "up" the list (in the order it's in as above, anyway), and
-apply the rules (to the 'expression' column, %nthe
-expression)
-
-a?b means a if it is known, or b:
-
-D[%0] = 1
-D[%n] =
-  match on(E[%n]):
-   c             : 0
-   %a  (a =/= 0) : D[%a]
-   (+ %a %b)     : (+ D[%a] D[%b])
-   (* %a %b)     : (+ (* D[%a]*V[%b]) (* V[%a]*D[%b]))
-etc.
-
-Notice that we can make this reduction immediately, since if %a
-appears in E[%b], then an assignment for %a must have been seen.  If
-it hasn't, it is in part of the chain that lead to the computation of
-an argument.  Could discard this on entry (only keep the tops
-of the arg stacks) - would this always work (nested gradients)?
-
-Can apply this in order:
-
-;; make a trace a sequence, with
-
-(for/fold ([D (hash )])
-          ([a (in-trace t)])
-  (hash-set (id a) (cons (val a) (deriv (expr a) D))))
-
-where deriv is a function like the one above, taking an expression and
-environment and returning derivatives.
-
-;; note the for/fold construct in Racket
-
-;; (for best way to connect to later part - compile time code
-transform - probably want to actually keep an ordered list of
-assignments, or some opaque type)
-
-;; (can we do this without an explicit hash table, using the environment?)
-
-;; as e.g.
-
-- read these bottom to top as "let %n in (let %(n+1) in ...)"
-
-- 'eval' to do this, e.g.
-  - "let n = expr in ..." becomes "let n = expr in (let Dn = D[expr] in ...)"
-
-- could rewrite as let terms and use (eval expr ns) to evaluate in a
-new empty namespace.
-
-- all of this is a clue => do it at compile time instead.
-
-- simplest language only lets us do this. Next simplest has
-jumps/calls, and is Turing complete.
-
-|#
 
 ;; takes an assignment, a trace, and an environment (mapping of values
 ;; to derivatives in the trace), and returns additional trace items
@@ -163,22 +75,21 @@ jumps/calls, and is Turing complete.
   ;; the value of the identifier which is the derivative of identifier x
   (define (D x) (I (hash-ref deriv-map x)))
   (cond
-    [(eq? (id assgn) var) (datum . 1.0)]
-    [(memq (id assgn) indep-ids) (datum . 0.0)]
+    [(eq? (id assgn) var) (val->trace 1.0)]
+    [(memq (id assgn) indep-ids) (val->trace 0.0)]
     [else
      (match (expr assgn)
-       [(list 'constant '())  (datum . ())]
-       [(list 'constant c)    (datum . 0.0)]
-       [(list 'app 'cons x y) ((top-val cons&) (D x) (D y))]
-       [(list 'app 'car ls)   ((top-val car&) (D ls))]
-       [(list 'app 'cdr ls)   ((top-val cdr&) (D ls))]
+       [(list 'constant '())  null&]
+       [(list 'constant c)    (val->trace 0.0)]
+       [(list 'app 'cons x y) (app cons& (D x) (D y))]
+       [(list 'app 'car ls)   (app car& (D ls))]
+       [(list 'app 'cdr ls)   (app cdr& (D ls))]
        [(list 'app op xs ...) (let ([xs& (map I xs)])
-                                (for/fold ([acc (datum . 0.0)])
+                                (for/fold ([acc (val->trace 0.0)])
                                           ([x xs]
                                            [i (in-naturals)])
-                                  (define D_i_op (apply pderiv i op xs&))
-                                  ((top-val +&) ((top-val *&) D_i_op (D x))
-                                                acc)))])]))
+                                  (define D_i_op (apply (partial i op) xs&))
+                                  (app +& (app *& D_i_op (D x)) acc)))])]))
 
 ;; The i'th partial derivative of f, evaluated as xs, computed by
 ;; forward accumulation
@@ -204,14 +115,6 @@ jumps/calls, and is Turing complete.
            (trace-prune (trace-remove-duplicates Dresult))))))
     'partial/f)))
 
-;; The operator partial/f, for providing to the tracing lang
-;;
-;; D& : trace? (trace? ... -> trace?) -> trace? ... -> trace?
-;; (define partial/f&
-;;   (val->trace
-;;    (lambda (i f)
-;;      ((top-val partial/f) (top-val i) f))))
-
 ;; The Jacobian of f at xs, computed by forward accumulation
 ;;
 ;; D/f : (trace? ... -> trace?) -> (Listof trace?) -> trace?
@@ -223,7 +126,7 @@ jumps/calls, and is Turing complete.
        (lambda xs
          (let* ([n (length xs)]
                 [Di (for/list ([i (range n)])
-                      (apply (top-val ((top-val partial/f) (val->trace i) f))
+                      (apply (top-val (app partial/f (val->trace i) f))
                              xs))])
            (apply (top-val list&) Di)))))
       'D/f)))
@@ -297,18 +200,16 @@ to record it anywhere globally.
     [(list 'constant c) {values Aw adjoint-terms}]
 
     [(list 'app 'cons x y)
-     (let ([Ax ((top-val car&) Aw)]
-           [Ay ((top-val cdr&) Aw)])
+     (let ([Ax (app car& Aw)]
+           [Ay (app cdr& Aw)])
        {values (trace-append Ay Ax Aw)
                (upd-adj adjoint-terms #:key top-id x Ax y Ay)})]
 
     [(list 'app c_r xs) #:when (or (eq? c_r 'car) (eq? c_r 'cdr))
      (let* ([xs& (trace-get xs Aw)]
             [tr  (case c_r
-                   [(car) ((top-val cons&)
-                           Aw ((top-val cons-zero) ((top-val cdr&) xs&)))]
-                   [(cdr) ((top-val cons&)
-                           ((top-val cons-zero) ((top-val car&) xs&)) Aw)])])
+                   [(car) (app cons& Aw (app cons-zero (app cdr& xs&)))]
+                   [(cdr) (app cons& (app cons-zero (app car& xs&)) Aw)])])
        {values (trace-append tr Aw)
                (upd-adj adjoint-terms #:key top-id xs tr)})]
 
@@ -318,7 +219,7 @@ to record it anywhere globally.
                   [adjoint-terms adjoint-terms])
                  ([x xs]
                   [i (in-naturals)])
-         (let ([Ax ((top-val *&) Aw (apply pderiv i op xs&))])
+         (let ([Ax (app *& Aw (apply (partial i op) xs&))])
            {values (trace-append Ax tr)
                    (upd-adj adjoint-terms #:key top-id x Ax)})))]
     ))
@@ -380,16 +281,12 @@ to record it anywhere globally.
             (for/list ([x indep-ids])
               (trace-get (hash-ref adjoints x zero-id) tr*))))))
 
-
-(define (datum->trace x) (make-trace (make-assignment #:val x)))
-
 (define (cons->trace x)
   (cond
     [(null? x)  null&]
-    [(pair? x)  ((top-val cons&) (cons->trace (car x))
-                                 (cons->trace (cdr x)))]
+    [(pair? x)  (app cons& (cons->trace (car x)) (cons->trace (cdr x)))]
     [(trace? x) x]
-    [else       (datum->trace x)]))
+    [else       (val->trace x)]))
 
 
 ;; The Jacobian of f at xs, computed by reverse accumulation
