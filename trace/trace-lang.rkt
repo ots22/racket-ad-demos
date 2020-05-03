@@ -11,8 +11,8 @@
          all-defined-out
          require
 
-         (rename-out [datum #%datum]
-                     [app #%app]
+         (rename-out [datum& #%datum]
+                     [app& #%app]
                      [=& =]
                      [<&  <]
                      [<=& <=]

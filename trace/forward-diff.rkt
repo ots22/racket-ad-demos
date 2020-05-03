@@ -36,15 +36,15 @@
      (match (expr assgn)
        [(list 'constant '())  null&]
        [(list 'constant c)    (val->trace 0.0)]
-       [(list 'app 'cons x y) (app cons& (D x) (D y))]
-       [(list 'app 'car ls)   (app car& (D ls))]
-       [(list 'app 'cdr ls)   (app cdr& (D ls))]
+       [(list 'app 'cons x y) (app& cons& (D x) (D y))]
+       [(list 'app 'car ls)   (app& car& (D ls))]
+       [(list 'app 'cdr ls)   (app& cdr& (D ls))]
        [(list 'app op xs ...) (let ([xs& (map I xs)])
                                 (for/fold ([acc (val->trace 0.0)])
                                           ([x xs]
                                            [i (in-naturals)])
                                   (define D_i_op (apply (partial i op) xs&))
-                                  (app +& (app *& D_i_op (D x)) acc)))])]))
+                                  (app& +& (app& *& D_i_op (D x)) acc)))])]))
 
 ;; The i'th partial derivative of f, evaluated as xs, computed by
 ;; forward accumulation
@@ -81,7 +81,7 @@
        (lambda xs
          (let* ([n (length xs)]
                 [Di (for/list ([i (range n)])
-                      (apply (top-val (app partial/f (val->trace i) f))
+                      (apply (top-val (app& partial/f (val->trace i) f))
                              xs))])
            (apply (top-val list&) Di)))))
     'D/f)))

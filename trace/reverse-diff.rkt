@@ -20,7 +20,6 @@
 ;; ----------------------------------------
 ;; Reverse mode AD
 
-
 ;; adjoint-trace+terms
 ;;
 ;; w: the current term (an assignment)
@@ -41,16 +40,16 @@
     [(list 'constant c) {values Aw adjoint-terms}]
 
     [(list 'app 'cons x y)
-     (let ([Ax (app car& Aw)]
-           [Ay (app cdr& Aw)])
+     (let ([Ax (app& car& Aw)]
+           [Ay (app& cdr& Aw)])
        {values (trace-append Ay Ax Aw)
                (upd-adj adjoint-terms #:key top-id x Ax y Ay)})]
 
     [(list 'app c_r xs) #:when (or (eq? c_r 'car) (eq? c_r 'cdr))
      (let* ([xs& (trace-get xs Aw)]
             [tr  (case c_r
-                   [(car) (app cons& Aw (app cons-zero (app cdr& xs&)))]
-                   [(cdr) (app cons& (app cons-zero (app car& xs&)) Aw)])])
+                   [(car) (app& cons& Aw (app& cons-zero (app& cdr& xs&)))]
+                   [(cdr) (app& cons& (app& cons-zero (app& car& xs&)) Aw)])])
        {values (trace-append tr Aw)
                (upd-adj adjoint-terms #:key top-id xs tr)})]
 
@@ -60,7 +59,7 @@
                   [adjoint-terms adjoint-terms])
                  ([x xs]
                   [i (in-naturals)])
-         (let ([Ax (app *& Aw (apply (partial i op) xs&))])
+         (let ([Ax (app& *& Aw (apply (partial i op) xs&))])
            {values (trace-append Ax tr)
                    (upd-adj adjoint-terms #:key top-id x Ax)})))]
     ))

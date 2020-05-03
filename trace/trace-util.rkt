@@ -8,6 +8,6 @@
 (define (cons->trace x)
   (cond
     [(null? x)  null&]
-    [(pair? x)  (app cons& (cons->trace (car x)) (cons->trace (cdr x)))]
+    [(pair? x)  (app& cons& (cons->trace (car x)) (cons->trace (cdr x)))]
     [(trace? x) x]
     [else       (val->trace x)]))

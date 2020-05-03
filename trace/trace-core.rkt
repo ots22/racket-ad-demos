@@ -5,10 +5,10 @@
 
 ;; Traced counterparts of several of these are provided with names
 ;; ending in '&', and reprovided without the '&' from trace-lang.rkt.
-;; The custom #%datum and #%app for the lang are defined here as datum
-;; and app.
+;; The custom #%datum and #%app for the lang are defined here as datum&
+;; and app&.
 
-(provide datum app define& if& and& lambda& null& not& +& -& *& /& =&
+(provide datum& app& define& if& and& lambda& null& not& +& -& *& /& =&
 <& >& <=& >=& expt& exp& log& cons& car& cdr& null?& pair?& range&
 list& trace-display&)
 
@@ -135,10 +135,10 @@ list& trace-display&)
 ;; ----------------------------------------
 ;; Definitions for trace-lang
 
-(define-syntax-rule (datum . d)
+(define-syntax-rule (datum& . d)
   (val->trace (#%datum . d)))
 
-(define-syntax-rule (app fn args ...)
+(define-syntax-rule (app& fn args ...)
   (#%app (top-val fn) args ...))
 
 (define-syntax (define& stx)
@@ -197,29 +197,29 @@ list& trace-display&)
            rackunit/quickcheck)
 
   (test-case "datum"
-    (define d (datum . 1.0))
+    (define d (datum& . 1.0))
     (check-equal? (top-val d) 1.0)
     (check-equal? (top-expr d) '(constant 1.0))
     (check-equal? (length (trace-items d)) 1))
 
   (test-case "app"
-    (check-equal? (top-val (app not& (val->trace #t))) #f))
+    (check-equal? (top-val (app& not& (val->trace #t))) #f))
 
   (test-case "definitions"
     (define-traced (f) (val->trace 1))
-    (check-equal? (top-val (app f)) 1)
+    (check-equal? (top-val (app& f)) 1)
 
     (define-traced (g x . xs) (val->trace 1))
-    (check-equal? (top-val (app g (val->trace 1))) 1)
+    (check-equal? (top-val (app& g (val->trace 1))) 1)
 
     ;; curried function definition not yet supported
     (check-exn exn:fail? (λ () (expand #'(define& ((f) x) x) (void))))
 
     (define-traced (h x) x)
     ;; wrong number of arguments
-    (check-exn exn:fail? (λ () (app h)))
+    (check-exn exn:fail? (λ () (app& h)))
     ;; invalid empty trace
-    (check-exn exn:fail? (λ () (app h (trace-append)))))
+    (check-exn exn:fail? (λ () (app& h (trace-append)))))
 
   ;; property-based tests to check that the traced operators produce
   ;; the same result as their counterparts
@@ -247,29 +247,29 @@ list& trace-display&)
 
     (check-property
      (property ([x arbitrary-real])
-               (= (top-val (app exp& (val->trace x)))
+               (= (top-val (app& exp& (val->trace x)))
                   (exp x))))
 
     (check-property
      (property ([x (choose-real 0 1e+8)])
-               (= (top-val (app log& (val->trace x)))
+               (= (top-val (app& log& (val->trace x)))
                   (log x))))
 
     (check-property
      (property ([xs (arbitrary-pair arbitrary-real
                                     (arbitrary-list arbitrary-real))])
                (let ([xs& (apply (top-val list&) (map val->trace xs))])
-                 (and (equal? (top-val (app car& xs&)) (car xs))
-                      (equal? (top-val (app cdr& xs&)) (cdr xs))))))
+                 (and (equal? (top-val (app& car& xs&)) (car xs))
+                      (equal? (top-val (app& cdr& xs&)) (cdr xs))))))
 
-    (check-equal? (top-val (app not& (val->trace #f))) #t)
-    (check-equal? (top-val (app not& (val->trace #t))) #f)
+    (check-equal? (top-val (app& not& (val->trace #f))) #t)
+    (check-equal? (top-val (app& not& (val->trace #t))) #f)
 
-    (check-equal? (top-val (app null?& (val->trace null))) #t)
-    (check-equal? (top-val (app pair?& (app list&
-                                            (val->trace 'a) (val->trace 'b))))
+    (check-equal? (top-val (app& null?& (val->trace null))) #t)
+    (check-equal? (top-val (app& pair?& (app& list&
+                                              (val->trace 'a) (val->trace 'b))))
                   #t)
-    (check-equal? (top-val (app pair?& null&)) #f)
-    (check-equal? (top-val (app pair?& (val->trace 1.0))) #f)
+    (check-equal? (top-val (app& pair?& null&)) #f)
+    (check-equal? (top-val (app& pair?& (val->trace 1.0))) #f)
 
     )) ; test-case, module+
