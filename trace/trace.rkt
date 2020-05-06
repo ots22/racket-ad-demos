@@ -152,7 +152,7 @@
 ;;
 ;; trace-append : trace? ... -> trace?
 (define (trace-append . ts)
-  (trace-remove-duplicates (trace (apply append (map trace-items ts)))))
+  (trace-remove-duplicates (trace (append* (map trace-items ts)))))
 
 (module+ test
   (test-case "trace-append"
