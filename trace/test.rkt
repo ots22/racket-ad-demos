@@ -5,9 +5,91 @@
          rackunit/quickcheck
          "trace.rkt"
          "trace-core.rkt"
+         "trace-util.rkt"
          "diff.rkt"
          "util.rkt"
          "test-util.rkt")
+
+(module+ test  
+  (test-case "datum"
+    (define d (datum& . 1.0))
+    (check-equal? (top-val d) 1.0)
+    (check-equal? (top-expr d) '(constant 1.0))
+    (check-equal? (length (trace-items d)) 1))
+
+  (test-case "app"
+    (check-equal? (top-val (app& not& (val->trace #t))) #f))
+
+  (test-case "definitions"
+    (define& (f) (val->trace 1))
+    (check-equal? (top-val (app& f)) 1)
+
+    (define& (g x . xs) (val->trace 1))
+    (check-equal? (top-val (app& g (val->trace 1))) 1)
+
+    ;; curried function definition not yet supported
+    (check-exn exn:fail? (λ () (expand #'(define& ((f) x) x) (void))))
+
+    (define& (h x) x)
+    ;; wrong number of arguments
+    (check-exn exn:fail? (λ () (app& h)))
+    ;; invalid empty trace
+    (check-exn exn:fail? (λ () (app& h (trace-append)))))
+
+  ;; property-based tests to check that the traced operators produce
+  ;; the same result as their counterparts
+  (test-case "traced ops"
+    (for ([bin-op (list (cons + +&)
+                        (cons - -&)
+                        (cons * *&)
+                        (cons / /&)
+                        (cons expt expt&)
+                        (cons = =&)
+                        (cons < <&)
+                        (cons > >&)
+                        (cons <= <=&)
+                        (cons >= >=&)
+                        (cons cons cons&))])
+      (with-check-info (['operation-plain (car bin-op)]
+                        ['operation-trace (cdr bin-op)])
+        (check-property
+         (property ([x arbitrary-real]
+                    [y arbitrary-real])
+                   (equal?
+                    (top-val ((top-val (cdr bin-op))
+                              (val->trace x) (val->trace y)))
+                    ((car bin-op) x y))))))
+
+    (check-property
+     (property ([x arbitrary-real])
+               (= (top-val (app& exp& (val->trace x)))
+                  (exp x))))
+
+    (check-property
+     (property ([x (choose-real 0 1e+8)])
+               (= (top-val (app& log& (val->trace x)))
+                  (log x))))
+
+    (check-property
+     (property ([xs (arbitrary-pair arbitrary-real
+                                    (arbitrary-list arbitrary-real))])
+               (let ([xs& (cons->trace xs)])
+                 (and (equal? (top-val (app& car& xs&)) (car xs))
+                      (equal? (top-val (app& cdr& xs&)) (cdr xs))))))
+
+    (check-equal? (top-val (app& not& (val->trace #f))) #t)
+    (check-equal? (top-val (app& not& (val->trace #t))) #f)
+
+    (check-equal? (top-val (app& null?& (val->trace null))) #t)
+    (check-equal? (top-val (app& pair?& (app& list&
+                                              (val->trace 'a) (val->trace 'b))))
+                  #t)
+    (check-equal? (top-val (app& pair?& null&)) #f)
+    (check-equal? (top-val (app& pair?& (val->trace 1.0))) #f)
+
+    )) ; test-case, module+
+
+;; ----------------------------------------
 
 (module derivatives-1 "trace-lang.rkt"
   (require "diff.rkt")
@@ -57,7 +139,6 @@
   (define (Df/expect x y) (list (f_0/expect x y)
                                 (f_1/expect x y)))
 
-
   ;;
 
   (define (g1 x y)
@@ -77,8 +158,6 @@
   (define (Dg2/expect x y) (list 3.0 0.0))
 
 )
-
-
 
 (require 'derivatives-1)
 
