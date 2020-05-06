@@ -1,7 +1,8 @@
 #lang racket
 
 (require "trace.rkt"
-         "trace-core.rkt")
+         "trace-core.rkt"
+         "trace-apply.rkt")
 
 (provide #%module-begin
          #%top
@@ -44,4 +45,6 @@
                      [trace-display& trace-display]
 
                      [lambda& lambda]
-                     [lambda& λ]))
+                     [lambda& λ]
+
+                     [apply& apply]))
