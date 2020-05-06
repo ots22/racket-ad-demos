@@ -169,7 +169,7 @@
      (let ([Ax (dfn-build #'car Aw)]
            [Ay (dfn-build #'cdr Aw)])
        {values (dfn-remove-duplicates (append Aw Ay Ax))
-               (upd-adj adjoint-terms #:key last-id #'x Ax #'y Ay)})]
+               (dict-list-update adjoint-terms #:key last-id #'x Ax #'y Ay)})]
 
     [(define _ (car xs))
      (let* ([xs*  (dfn-get #'xs Aw)]
@@ -178,7 +178,7 @@
                              (dfn-build #'zero
                                         (dfn-build #'cdr xs*)))])
        {values (dfn-remove-duplicates (append dfns Aw))
-               (upd-adj adjoint-terms #:key last-id #'xs dfns)})]
+               (dict-list-update adjoint-terms #:key last-id #'xs dfns)})]
 
     [(define _ (cdr xs))
      (let* ([xs* (dfn-get #'xs Aw)]
@@ -187,7 +187,7 @@
                                          (dfn-build #'car xs*))
                               Aw)])
        {values (dfn-remove-duplicates (append dfns Aw))
-               (upd-adj adjoint-terms #:key last-id #'xs dfns)})]
+               (dict-list-update adjoint-terms #:key last-id #'xs dfns)})]
 
     [(define _ (op xs ...))
      (let-values
@@ -202,7 +202,7 @@
                (let ([Ax (dfn-build #'car b-cdr)])
                  {values (dfn-remove-duplicates (append dfns Ax))
                          (dfn-build #'cdr b-cdr)
-                         (upd-adj adjoint-terms #:key last-id x Ax)
+                         (dict-list-update adjoint-terms #:key last-id x Ax)
                          })))])
        {values new-dfns new-adjoint-terms})]
 

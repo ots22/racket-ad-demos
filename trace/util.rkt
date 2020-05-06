@@ -7,11 +7,10 @@
          within-rel
          checks->preds
          chunk
-         chunk2
          next-name
          remove-duplicates-before
          dict-list-append
-         upd-adj
+         dict-list-update
          syntax-reverse
          suffix-in)
 
@@ -107,7 +106,7 @@
     forms ...))
 
 (define (chunk n xs) (for/list ([x (in-slice n xs)]) x))
-(define chunk2 (curry chunk 2))
+
 (module+ test
   (check-equal? (chunk 2 '(1 2 3 4 5 6)) '((1 2) (3 4) (5 6)))
   (check-equal? (chunk 3 '(1 2 3 4 5)) '((1 2 3) (4 5))))
@@ -154,18 +153,19 @@
     (check-equal? (dict-list-append (hash 1 '(2 3)) 2 '(0 5))
                   (hash 1 '(2 3) 2 '(0 5)))))
 
-(define (upd-adj adj-table #:key key-fn . keys-and-traces)
-  (for/fold ([adj-table* adj-table])
-            ([kt (chunk2 keys-and-traces)])
-    (let ([k (car kt)] [t (cadr kt)])
-      (dict-list-append adj-table* k (list (key-fn t))))))
+(define (dict-list-update h #:key key-fn . kvs)
+  (for/fold ([h* h])
+            ([kv (chunk 2 kvs)])
+    (let ([k (car kv)]
+          [v (cadr kv)])
+      (dict-list-append h* k (list (key-fn v))))))
 
 (module+ test
   (test-case "Adjoint term update helper"
-    (define adj-table (hash 'a (list 1 2 3) 'b (list 4)))
-    (check-equal? (upd-adj adj-table #:key identity 'c 5)
+    (define ht (hash 'a (list 1 2 3) 'b (list 4)))
+    (check-equal? (dict-list-update ht #:key identity 'c 5)
                   (hash 'a (list 1 2 3) 'b (list 4) 'c (list 5)))
-    (check-equal? (upd-adj adj-table #:key identity 'c 5 'b 1 'd 6 'c 7)
+    (check-equal? (dict-list-update ht #:key identity 'c 5 'b 1 'd 6 'c 7)
                   (hash 'a (list 1 2 3)
                         'b (list 1 4)
                         'c (list 7 5)

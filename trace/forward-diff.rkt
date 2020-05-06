@@ -8,6 +8,7 @@
          "trace.rkt"
          "trace-core.rkt"
          "trace-util.rkt"
+         (rename-in "let-traced.rkt" [traced <&>])
          "primitive-partial.rkt")
 
 ;; takes an assignment, a trace, and an environment (mapping of values
@@ -17,20 +18,20 @@
 ;; deriv/f : assignment? trace? (HashTable symbol? symbol?) -> trace?
 (define (d-primitive assgn tr deriv-map)
   ;; the trace of the derivative of identifier x
-  (define (d x) (trace-get (hash-ref deriv-map x) tr))
+  (define-syntax-rule (d x) (trace-get (hash-ref deriv-map x) tr))
   (match (expr assgn)
     [(list 'constant '())  null&]
-    [(list 'constant c)    (val->trace 0.0)]
-    [(list 'app 'cons x y) (app& cons& (d x) (d y))]
-    [(list 'app 'car ls)   (app& car& (d ls))]
-    [(list 'app 'cdr ls)   (app& cdr& (d ls))]
+    [(list 'constant c)    (<&> 0.0)]
+    [(list 'app 'cons x y) (<&> (cons& (d x) (d y)))]
+    [(list 'app 'car ls)   (<&> (car& (d ls)))]
+    [(list 'app 'cdr ls)   (<&> (cdr& (d ls)))]
     [(list 'app op xs ...)
-     (let ([xs-tr (map (λ (x) (trace-get x tr)) xs)])
-       (for/fold ([acc& (val->trace 0.0)])
+     (let ([xs-trs (for/list ([x xs]) (trace-get x tr))])
+       (for/fold ([acc& (<&> 0.0)])
                  ([x xs]
                   [i (in-naturals)])
-         (app& +& acc&
-               (app& *& (apply (partial i op) xs-tr) (d x)))))]))
+         (let ([d-op (apply (partial i op) xs-trs)])
+           (<&> (+& acc& (*& d-op (d x)))))))]))
 
 ;; The i'th partial derivative of f, evaluated as xs, computed by
 ;; forward accumulation
@@ -40,14 +41,14 @@
   (lambda& xs ; currently rest args in lambda is a plain list
     (let ([arg-ids (map top-id xs)]
           [x-id    (top-id (list-ref xs (top-val i&)))]
-          [y&      (apply (top-val f&) xs)])
+          [y&      (apply (top-val f&) xs)]) ;; --> (<&> (apply& f& xs&))
       (define-values (dy& _)
         (for/fold ([result-trace y&]
                    [derivatives (hash)])
                   ([z-assgn (reverse (trace-items y&))])
           (let ([dz& (cond
-                       [(eq? (id z-assgn) x-id) (val->trace 1.0)]
-                       [(memq (id z-assgn) arg-ids) (val->trace 0.0)]
+                       [(eq? (id z-assgn) x-id) (<&> 1.0)]
+                       [(memq (id z-assgn) arg-ids) (<&> 0.0)]
                        [else (d-primitive z-assgn result-trace derivatives)])])
             {values
              (trace-append dz& result-trace)
@@ -57,9 +58,10 @@
 ;; The Jacobian of f at xs, computed by forward accumulation
 ;;
 ;; D/f : (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define& (D/f f)
-  (lambda& xs ; currently rest args in lambda is a plain list
+(define& (D/f f&)
+  (lambda& xs ; currently rest args in lambda& is a plain list
     (cons->trace
      (for/list ([i (range (length xs))])
-       (apply (top-val (app& partial/f (val->trace i) f))
-              xs)))))
+       (let ([i& (val->trace i)])
+         (apply (top-val (<&> (partial/f i& f&)))
+                xs))))))
