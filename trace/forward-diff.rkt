@@ -7,63 +7,59 @@
          "util.rkt"
          "trace.rkt"
          "trace-core.rkt"
-         "primitive-partial.rkt"
-         "cons-arithmetic.rkt")
+         "trace-util.rkt"
+         "primitive-partial.rkt")
 
 ;; takes an assignment, a trace, and an environment (mapping of values
 ;; to derivatives in the trace), and returns additional trace items
 ;; for computing the derivative.
 ;;
-;; deriv/f : assignment? symbol? (Listof symbol?) trace?
-;;     (HashTable symbol? symbol?) -> trace?
-(define (deriv/f assgn var indep-ids tr deriv-map)
-  ;; the value of the identifier x
-  (define (I x) (trace-get x tr))
-  ;; the value of the identifier which is the derivative of identifier x
-  (define (D x) (I (hash-ref deriv-map x)))
-  (cond
-    [(eq? (id assgn) var) (val->trace 1.0)]
-    [(memq (id assgn) indep-ids) (val->trace 0.0)]
-    [else
-     (match (expr assgn)
-       [(list 'constant '())  null&]
-       [(list 'constant c)    (val->trace 0.0)]
-       [(list 'app 'cons x y) (app& cons& (D x) (D y))]
-       [(list 'app 'car ls)   (app& car& (D ls))]
-       [(list 'app 'cdr ls)   (app& cdr& (D ls))]
-       [(list 'app op xs ...) (let ([xs& (map I xs)])
-                                (for/fold ([acc (val->trace 0.0)])
-                                          ([x xs]
-                                           [i (in-naturals)])
-                                  (define D_i_op (apply (partial i op) xs&))
-                                  (app& +& (app& *& D_i_op (D x)) acc)))])]))
+;; deriv/f : assignment? trace? (HashTable symbol? symbol?) -> trace?
+(define (d-primitive assgn tr deriv-map)
+  ;; the trace of the derivative of identifier x
+  (define (d x) (trace-get (hash-ref deriv-map x) tr))
+  (match (expr assgn)
+    [(list 'constant '())  null&]
+    [(list 'constant c)    (val->trace 0.0)]
+    [(list 'app 'cons x y) (app& cons& (d x) (d y))]
+    [(list 'app 'car ls)   (app& car& (d ls))]
+    [(list 'app 'cdr ls)   (app& cdr& (d ls))]
+    [(list 'app op xs ...)
+     (let ([xs-tr (map (λ (x) (trace-get x tr)) xs)])
+       (for/fold ([acc& (val->trace 0.0)])
+                 ([x xs]
+                  [i (in-naturals)])
+         (app& +& acc&
+               (app& *& (apply (partial i op) xs-tr) (d x)))))]))
 
 ;; The i'th partial derivative of f, evaluated as xs, computed by
 ;; forward accumulation
 ;;
 ;; partial/f : trace? (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define& (partial/f i f)
-  (lambda& xs
-    (let* ([var       (top-id (list-ref xs (top-val i)))]
-           [indep-ids (map top-id xs)]
-           [result    (apply (top-val f) xs)])
-      (define-values (Dresult _)
-        (for/fold ([tr result]
-                   [deriv-map (hash)])
-                  ([a (reverse (trace-items result))])
-          (let* ([Da (deriv/f a var indep-ids tr deriv-map)])
+(define& (partial/f i& f&)
+  (lambda& xs ; currently rest args in lambda is a plain list
+    (let ([arg-ids (map top-id xs)]
+          [x-id    (top-id (list-ref xs (top-val i&)))]
+          [y&      (apply (top-val f&) xs)])
+      (define-values (dy& _)
+        (for/fold ([result-trace y&]
+                   [derivatives (hash)])
+                  ([z-assgn (reverse (trace-items y&))])
+          (let ([dz& (cond
+                       [(eq? (id z-assgn) x-id) (val->trace 1.0)]
+                       [(memq (id z-assgn) arg-ids) (val->trace 0.0)]
+                       [else (d-primitive z-assgn result-trace derivatives)])])
             {values
-             (trace-append Da tr)
-             (hash-set deriv-map (id a) (top-id Da))})))
-      (trace-prune (trace-remove-duplicates Dresult)))))
+             (trace-append dz& result-trace)
+             (hash-set derivatives (id z-assgn) (top-id dz&))})))
+      dy&)))
 
 ;; The Jacobian of f at xs, computed by forward accumulation
 ;;
 ;; D/f : (trace? ... -> trace?) -> (Listof trace?) -> trace?
 (define& (D/f f)
-  (lambda& xs
-    (let* ([n (length xs)]
-           [Di (for/list ([i (range n)])
-                 (apply (top-val (app& partial/f (val->trace i) f))
-                        xs))])
-      (apply (top-val list&) Di))))
+  (lambda& xs ; currently rest args in lambda is a plain list
+    (cons->trace
+     (for/list ([i (range (length xs))])
+       (apply (top-val (app& partial/f (val->trace i) f))
+              xs)))))
