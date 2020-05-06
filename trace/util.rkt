@@ -12,11 +12,15 @@
          remove-duplicates-before
          dict-list-append
          upd-adj
-         syntax-reverse)
+         syntax-reverse
+         suffix-in)
 
 (require racket/syntax
          rackunit
-         quickcheck)
+         quickcheck
+         (for-syntax racket/require-transform
+                     syntax/parse
+                     syntax/to-string))
 
 (module+ test
   (require rackunit))
@@ -166,3 +170,22 @@
                         'b (list 1 4)
                         'c (list 7 5)
                         'd (list 6)))))
+
+(define-for-syntax (identifier-append a b)
+  (datum->syntax
+   a
+   (string->symbol
+    (string-append (symbol->string (syntax-e a))
+                   (symbol->string (syntax-e b))))))
+
+(define-syntax suffix-in
+  (make-require-transformer
+   (syntax-parser
+     [(_ suffix-id spec)
+      (let-values ([(imports sources) (expand-import #'spec)])
+        (define (import-add-prefix im)
+          (struct-copy import im
+                       [local-id (identifier-append (import-local-id im)
+                                                    #'suffix-id)]))
+        {values (map import-add-prefix imports)
+                sources})])))

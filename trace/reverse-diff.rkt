@@ -9,7 +9,8 @@
          "trace-core.rkt"
          "trace-util.rkt"
          "primitive-partial.rkt"
-         "cons-arithmetic.rkt")
+         (suffix-in & "cons-arithmetic.rkt")
+         (suffix-in & "trace-function.rkt"))
 
 ;; ----------------------------------------
 ;; Reverse mode AD
@@ -42,8 +43,8 @@
     [(list 'app c_r xs) #:when (or (eq? c_r 'car) (eq? c_r 'cdr))
      (let* ([xs& (trace-get xs Aw)]
             [tr  (case c_r
-                   [(car) (app& cons& Aw (app& cons-zero (app& cdr& xs&)))]
-                   [(cdr) (app& cons& (app& cons-zero (app& car& xs&)) Aw)])])
+                   [(car) (app& cons& Aw (app& cons-zero& (app& cdr& xs&)))]
+                   [(cdr) (app& cons& (app& cons-zero& (app& car& xs&)) Aw)])])
        {values (trace-append tr Aw)
                (upd-adj adjoint-terms #:key top-id xs tr)})]
 
@@ -94,7 +95,7 @@
 
            ;; adj-terms can't be empty
            [(Aw) (trace-append
-                  (foldl (top-val cons-add) (car Aw-terms) (cdr Aw-terms))
+                  (foldl (top-val cons-add&) (car Aw-terms) (cdr Aw-terms))
                   tr)]
 
            [(adjoints*) (hash-set adjoints (id w) (top-id Aw))]
