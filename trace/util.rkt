@@ -1,7 +1,8 @@
 #lang racket
 
-(provide reshape
+(provide reshape-as
          ind-list
+         in-indicator
          flip
          raises?
          within-rel
@@ -24,13 +25,13 @@
 (module+ test
   (require rackunit))
 
-(define (reshape shape data)
+(define (reshape-as shape data)
   (define-values (result _)
     (let loop ([shape shape]
                [data data])
       (cond
         [(and (null? data) (not (null? shape)))
-         (raise-user-error 'reshape "out of data when reshaping")]
+         (raise-user-error 'reshape-as "out of data when reshaping")]
 
         [(pair? shape)
          (let*-values ([(left data*) (loop (car shape) data)]
@@ -43,18 +44,18 @@
   result)
 
 (module+ test
-  (check-equal? (reshape '() '()) '())
+  (check-equal? (reshape-as '() '()) '())
 
-  (check-equal? (reshape '((1 (2) . 3) . 4) '(a b c d))
+  (check-equal? (reshape-as '((1 (2) . 3) . 4) '(a b c d))
                 '((a (b) . c) . d))
 
-  (check-equal? (reshape '(((a))) '(1 2))
+  (check-equal? (reshape-as '(((a))) '(1 2))
                 '(((1))))
 
-  (check-equal? (reshape 'a '(1 2))
+  (check-equal? (reshape-as 'a '(1 2))
                 1)
 
-  (check-exn exn:fail? (λ () (reshape '(1) '()))))
+  (check-exn exn:fail? (λ () (reshape-as '(1) '()))))
 
 
 (define (ind-list n i)
@@ -69,6 +70,23 @@
   (check-equal? (ind-list 5 3) '(0 0 0 1 0))
   (check-exn exn:fail? (λ () (ind-list 5 6))))
 
+(struct indicator-iter (xs i n)
+  #:methods gen:stream
+  [(define (stream-empty? s)
+     (= (indicator-iter-i s)
+        (indicator-iter-n s)))
+   (define (stream-first s)
+     (reshape-as (indicator-iter-xs s)
+                 (map exact->inexact (ind-list (indicator-iter-n s)
+                                               (indicator-iter-i s)))))
+   (define (stream-rest s)
+     (struct-copy indicator-iter s [i (add1 (indicator-iter-i s))]))])
+
+(struct in-indicator (xs)
+  #:property prop:sequence
+  (λ (ind) (indicator-iter (in-indicator-xs ind)
+                           0
+                           (length (flatten (in-indicator-xs ind))))))
 
 (define ((flip f) a b) (f b a))
 
@@ -105,7 +123,7 @@
             #t))]) ;; check passed => #t
     forms ...))
 
-(define (chunk n xs) (for/list ([x (in-slice n xs)]) x))
+(define (chunk n xs) (sequence->list (in-slice n xs)))
 
 (module+ test
   (check-equal? (chunk 2 '(1 2 3 4 5 6)) '((1 2) (3 4) (5 6)))
