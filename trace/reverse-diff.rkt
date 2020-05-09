@@ -3,15 +3,15 @@
 (provide A/r
          D/r)
 
-(require ;(for-syntax syntax/parse)
- "util.rkt"
- "trace.rkt"
- "trace-core.rkt"
- "trace-util.rkt"
- "primitive-partial.rkt"
- "let-traced.rkt"
- (suffix-in & "cons-arithmetic.rkt")
- (suffix-in & "trace-function.rkt"))
+(require  "util.rkt"
+          "trace.rkt"
+          "trace-core.rkt"
+          "trace-util.rkt"
+          "trace-apply.rkt"
+          "primitive-partial.rkt"
+          "let-traced.rkt"
+          (suffix-in & "cons-arithmetic.rkt")
+          (suffix-in & "trace-function.rkt"))
 
 ;; update-tr+terms : trace? (HashTable symbol? (Listof symbol?))
 ;;     -> (Values trace? (HashTable symbol? (Listof symbol?)))
@@ -111,12 +111,13 @@
 ;; The Jacobian of f at xs, computed by reverse accumulation
 ;;
 ;; D/r : (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define& (D/r f)
-  (lambda& xs ; currently rest args in lambda& is a plain list
-    (let ([arg-ids (map top-id xs)]
-          [y& (apply (top-val f) xs)])
-      (cons->trace
-       (reshape-as (top-val y&)
-                   (for/list ([ind (in-indicator (top-val y&))])
-                     (define s& (cons->trace ind))
-                     (A/r y& arg-ids s&)))))))
+(define& (D/r f&)
+  (val->trace
+   (lambda xs ;; not lambda&
+     (let ([arg-ids (map top-id xs)]
+           [y& (apply (top-val f&) xs)])
+       (cons->trace
+        (reshape-as (top-val y&)
+                    (for/list ([ind (in-indicator (top-val y&))])
+                      (define s& (cons->trace ind))
+                      (A/r y& arg-ids s&))))))))

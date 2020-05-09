@@ -102,26 +102,25 @@ list& trace-display&)
 (define-syntax (define-traced stx)
   (syntax-parse stx
     [(_ (f:id args:id ... . rest-args:id*) body:expr ...)
-     (with-syntax
-       ([all-arg-traces (get-all-arg-traces #'(args ... . rest-args))]
-        ;;
-        ;; The rest args to define-traced are received as a plain list
-        ;; of traces.  Convert this to a let binding form for a traced
-        ;; version of the list construction itself (used to shadow the
-        ;; rest-args parameter).
-        ;;
-        ;; Because rest-args may be null, use the 'maybe-id'
-        ;; attribute, which is a list of at most one id.
-        [(rest-args-binding ...)
-         #'((rest-args.maybe-id
-             (foldl (top-val cons&) null& (reverse rest-args.maybe-id))) ...)]
-        ;;
-        [args-contract (get-args-contract #'(args ... . rest-args))]
-        ;;
-        ;; A new symbol with the same name as f (so that the function
-        ;; has the expected procedure-name while keeping recursive
-        ;; definitions working as expected)
-        [f* (syntax->datum #'f)])
+     #:with all-arg-traces (get-all-arg-traces #'(args ... . rest-args))
+     ;;
+     ;; The rest args to define-traced are received as a plain list
+     ;; of traces.  Convert this to a let binding form for a traced
+     ;; version of the list construction itself (used to shadow the
+     ;; rest-args parameter).
+     ;;
+     ;; Because rest-args may be null, use the 'maybe-id'
+     ;; attribute, which is a list of at most one id.
+     #:with (rest-args-binding ...)
+     #'((rest-args.maybe-id
+         (foldl (top-val cons&) null& (reverse rest-args.maybe-id))) ...)
+     ;;
+     #:with args-contract (get-args-contract #'(args ... . rest-args))
+     ;;
+     ;; A new symbol with the same name as f (so that the function
+     ;; has the expected procedure-name while keeping recursive
+     ;; definitions working as expected)
+     #:with f* (syntax->datum #'f)
        #'(define f (let ()
                      (define/contract (f* args ... . rest-args)
                        args-contract
@@ -130,7 +129,7 @@ list& trace-display&)
                               [result-trace (let () body ...)])
                          (trace-prune
                           (trace-append result-trace arg-traces))))
-                     (val->trace f*))))]))
+                     (val->trace f*)))]))
 
 ;; ----------------------------------------
 ;; Definitions for trace-lang
@@ -159,8 +158,12 @@ list& trace-display&)
 (define-syntax-rule (and& a b)
   (if& a b (val->trace #f)))
 
-(define-syntax-rule (lambda& forms ...)
-  (val->trace (lambda forms ...)))
+(define-syntax lambda&
+  (syntax-parser
+    [(_ args:lambda-list body:expr ...)
+     #'(let ()
+         (define-traced (anonymous . args) body ...)
+         anonymous)]))
 
 (define null& (val->trace null))
 
@@ -184,6 +187,6 @@ list& trace-display&)
 (define-traced-primitive (pair?& a)  'pair? (pair? a))
 (define-traced-primitive (range& n)  'range (range n))
 
-(define-traced (list& . xs) xs)
+(define& (list& . xs) xs)
 
 (define trace-display& (val->trace trace-display))

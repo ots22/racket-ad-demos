@@ -11,7 +11,7 @@
          "test-util.rkt"
          "let-traced.rkt")
 
-(module+ test  
+(module+ test
   (test-case "datum"
     (define d (datum& . 1.0))
     (check-equal? (top-val d) 1.0)
@@ -20,6 +20,17 @@
 
   (test-case "app"
     (check-equal? (top-val [traced (not& #t)]) #f))
+
+  (test-case "lambda"
+    (check-true (trace? (lambda& x x)))
+    (check-equal? (top-val [traced ((lambda& (x y) (+& x y)) 1 2)]) 3)
+    (check-equal? (top-val [traced (define& f (lambda& (x y) (+& x y)))
+                                   (f 1 2)])
+                  3)
+    (check-equal? (top-val [traced ((lambda& x x) 1 2 3)])
+                  (list 1 2 3))
+    (check-equal? (top-val [traced ((lambda& x x) 1 2 3)])
+                  (list 1 2 3)))
 
   (test-case "definitions"
     (define& (f) (val->trace 1))

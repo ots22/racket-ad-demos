@@ -8,6 +8,7 @@
          "trace.rkt"
          "trace-core.rkt"
          "trace-util.rkt"
+         "trace-apply.rkt"
          "let-traced.rkt"
          "primitive-partial.rkt")
 
@@ -36,32 +37,32 @@
 ;; The i'th partial derivative of f, evaluated as xs, computed by
 ;; forward accumulation
 ;;
-;; partial/f : trace? (trace? ... -> trace?) -> (Listof trace?) -> trace?
+;; partial/f : trace? (trace? ... -> trace?) -> trace? ... -> trace?
 (define& (partial/f i& f&)
-  (lambda& xs ; currently rest args in lambda is a plain list
-    (let ([arg-ids (map top-id xs)]
-          [x-id    (top-id (list-ref xs (top-val i&)))]
-          [y&      (apply (top-val f&) xs)]) ;; --> (traced (apply& f& xs&))
-      (define-values (dy& _)
-        (for/fold ([result-trace y&]
-                   [derivatives (hash)])
-                  ([z-assgn (reverse (trace-items y&))])
-          (let ([dz& (cond
-                       [(eq? (id z-assgn) x-id) (traced 1.0)]
-                       [(memq (id z-assgn) arg-ids) (traced 0.0)]
-                       [else (d-primitive z-assgn result-trace derivatives)])])
-            {values
-             (trace-append dz& result-trace)
-             (hash-set derivatives (id z-assgn) (top-id dz&))})))
-      dy&)))
+  (val->trace
+   (lambda xs ;; not lambda&
+     (let ([arg-ids (map top-id xs)]
+           [x-id    (top-id (list-ref xs (top-val i&)))]
+           [y&      (apply (top-val f&) xs)])
+       (define-values (dy& _)
+         (for/fold ([result-trace y&]
+                    [derivatives (hash)])
+                   ([z-assgn (reverse (trace-items y&))])
+           (let ([dz& (cond
+                        [(eq? (id z-assgn) x-id) (traced 1.0)]
+                        [(memq (id z-assgn) arg-ids) (traced 0.0)]
+                        [else (d-primitive z-assgn result-trace derivatives)])])
+             {values
+              (trace-append dz& result-trace)
+              (hash-set derivatives (id z-assgn) (top-id dz&))})))
+       dy&))))
 
 ;; The Jacobian of f at xs, computed by forward accumulation
 ;;
-;; D/f : (trace? ... -> trace?) -> (Listof trace?) -> trace?
+;; D/f : (trace? ... -> trace?) -> trace? ... -> trace?
 (define& (D/f f&)
-  (lambda& xs ; currently rest args in lambda& is a plain list
+  (lambda& xs&
     (cons->trace
-     (for/list ([i (range (length xs))])
+     (for/list ([i (range (length (top-val xs&)))])
        (let ([i& (val->trace i)])
-         (apply (top-val (traced (partial/f i& f&)))
-                xs))))))
+         [traced (apply& (partial/f i& f&) xs&)])))))
