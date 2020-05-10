@@ -12,15 +12,15 @@
          "let-traced.rkt"
          "primitive-partial.rkt")
 
-;; takes an assignment, a trace, and an environment (mapping of values
+;; takes an 'expr', a trace, and an environment (mapping of values
 ;; to derivatives in the trace), and returns additional trace items
 ;; for computing the derivative.
 ;;
-;; deriv/f : assignment? trace? (HashTable symbol? symbol?) -> trace?
-(define (d-primitive assgn tr deriv-map)
+;; deriv/f : expr? trace? (HashTable symbol? symbol?) -> trace?
+(define (d-primitive z-expr tr deriv-map)
   ;; the trace of the derivative of identifier x
   (define-syntax-rule (d x) (trace-get (hash-ref deriv-map x) tr))
-  (match (expr assgn)
+  (match z-expr
     [(list 'constant '())  (traced null&)]
     [(list 'constant c)    (traced 0.0)]
     [(list 'app 'cons x y) (traced (cons& (d x) (d y)))]
@@ -51,11 +51,27 @@
            (let ([dz& (cond
                         [(eq? (id z-assgn) x-id) (traced 1.0)]
                         [(memq (id z-assgn) arg-ids) (traced 0.0)]
-                        [else (d-primitive z-assgn result-trace derivatives)])])
+                        [else (d-primitive (expr z-assgn) result-trace derivatives)])])
              {values
               (trace-append dz& result-trace)
               (hash-set derivatives (id z-assgn) (top-id dz&))})))
        dy&))))
+
+(define (directional-derivative/f y& x-ids s&)
+  (define-values (dy& _)
+    (for/fold ([result-trace y&]
+               [derivatives (make-immutable-hash
+                             (map cons x-ids (trace-e s&)))])
+              ([z-assgn (reverse (trace-items y&))])
+      (define dz&
+        (hash-ref
+         derivatives (id z-assgn)
+         (λ () (d-primitive (expr z-assgn) result-trace derivatives))))
+      {values
+       (trace-append dz& result-trace)
+       (hash-set derivatives (id z-assgn) dz&)}))
+  dy&)
+
 
 ;; The Jacobian of f at xs, computed by forward accumulation
 ;;
@@ -66,3 +82,10 @@
      (for/list ([i (range (length (top-val xs&)))])
        (let ([i& (val->trace i)])
          [traced (apply& (partial/f i& f&) xs&)])))))
+
+(define& (D/s/f s& f&)
+  (val->trace
+   (lambda xs
+     (let ([x-ids (map top-id xs)]
+           [y& (apply (top-val f&) xs)])
+       (directional-derivative/f y& x-ids s&)))))
