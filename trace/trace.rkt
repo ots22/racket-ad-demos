@@ -213,13 +213,19 @@
 ;; Remove orphaned assignments from the trace
 ;;
 ;; trace-prune : trace? -> trace?
-(define (trace-prune t)
+(define (trace-prune t [error-on-undefined? #t])
   (define (rec t seen)
     (match (top-expr t)
-      [(list f xs ...) (apply set-union
-                              (map (λ (x) (rec (trace-get x t)
-                                               (set-add seen x)))
-                                   xs))]
+      [(list f xs ...)
+       (apply set-union
+              (map (λ (x)
+                     (cond
+                       [(trace-get x t)
+                        => (λ (tr-x) (rec tr-x (set-add seen x)))]
+                       [error-on-undefined?
+                        (error 'trace-prune "Argument ~a undefined in trace" x)]
+                       [else seen]))
+                   xs))]
       [_ seen]))
   (if (trace-empty? t)
       t
@@ -237,10 +243,16 @@
     (check-equal? (trace-prune tr-1) expected-1)
 
     (define tr-2
-      (make-trace (make-assignment #:id 'b #:expr '(app exp a) #:val 1.0)
+      (make-trace (make-assignment #:id 'b #:expr '(exp a) #:val 1.0)
                   (make-assignment #:id 'a #:val 0.0)))
 
-    (check-equal? (trace-prune tr-2) tr-2)))
+    (check-equal? (trace-prune tr-2) tr-2)
+
+    (define tr-3
+      (make-trace (make-assignment #:id 'b #:expr '(exp a) #:val 1.0)))
+
+    (check-equal? (trace-prune tr-3 #f) tr-3)
+    (check-exn exn:fail? (λ () (trace-prune tr-3)))))
 
 
 ;; Pretty print a trace
