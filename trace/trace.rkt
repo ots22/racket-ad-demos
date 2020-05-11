@@ -39,7 +39,28 @@
   [(define write-proc
      (λ (x port mode)
        (when (non-empty-trace? x)
-         (write (val (top x)) port))))])
+         (write (val (top x)) port))))]
+  #:methods gen:equal+hash
+  [(define (equal-proc t1 t2 equal?-recur)
+     (and
+      (equal?-recur (length (trace-items t1))
+                    (length (trace-items t2)))
+      (for/and ([a1 (trace-items t1)]
+                [a2 (trace-items t2)])
+        (and (equal?-recur (id a1) (id a2))
+             (equal?-recur (expr a1) (expr a2))
+             (equal?-recur (val a1) (val a2))))))
+   (define (hash-proc t1 hash-recur)
+     (for/sum ([a1 (trace-items t1)])
+       (+ (hash-recur (id a1))
+          (hash-recur (expr a1))
+          (hash-recur (val a1)))))
+   (define (hash2-proc t1 hash2-recur)
+     (for/sum ([a1 (trace-items t1)])
+       (+ (hash2-recur (id a1))
+          (hash2-recur (expr a1))
+          (hash2-recur (val a1)))))]
+  )
 
 ;; provided constructor
 (define (make-trace . items)
