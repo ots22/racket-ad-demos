@@ -21,18 +21,18 @@
   ;; the trace of the derivative of identifier x
   (define-syntax-rule (d x) (trace-get (hash-ref deriv-map x) tr))
   (match z-expr
-    [(list 'constant '())  (traced null&)]
-    [(list 'constant c)    (traced 0.0)]
-    [(list 'app 'cons x y) (traced (cons& (d x) (d y)))]
-    [(list 'app 'car ls)   (traced (car& (d ls)))]
-    [(list 'app 'cdr ls)   (traced (cdr& (d ls)))]
-    [(list 'app op xs ...)
+    [(list 'cons x y) (traced (cons& (d x) (d y)))]
+    [(list 'car ls)   (traced (car& (d ls)))]
+    [(list 'cdr ls)   (traced (cdr& (d ls)))]
+    [(list op xs ...)
      (let ([xs-trs (for/list ([x xs]) (trace-get x tr))])
        (for/fold ([acc& (traced 0.0)])
                  ([x xs]
                   [i (in-naturals)])
          (let ([d-op (apply (partial i op) xs-trs)])
-           (traced (+& acc& (*& d-op (d x)))))))]))
+           (traced (+& acc& (*& d-op (d x)))))))]
+    ['()  (traced null&)]
+    [c    (traced 0.0)]))
 
 ;; The i'th partial derivative of f, evaluated as xs, computed by
 ;; forward accumulation

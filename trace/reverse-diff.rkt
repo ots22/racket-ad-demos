@@ -41,20 +41,19 @@
 (define (A-primitive w-expr Aw& A-terms)
   (define-syntax-rule (trace-of a) (trace-get a Aw&))
   (match w-expr
-    [(list 'constant c) {values Aw& A-terms}]
-    [(list 'app 'cons x y)
+    [(list 'cons x y)
      (update-tr+terms Aw& A-terms
                       x (traced (car& Aw&))
                       y (traced (cdr& Aw&)))]
-    [(list 'app 'car xs)
+    [(list 'car xs)
      (update-tr+terms Aw& A-terms
                       xs (traced
                           (cons& Aw& (cons-zero& (cdr& (trace-of xs))))))]
-    [(list 'app 'cdr xs)
+    [(list 'cdr xs)
      (update-tr+terms Aw& A-terms
                       xs (traced
                           (cons& (cons-zero& (car& (trace-of xs))) Aw&)))]
-    [(list 'app op xs ...)
+    [(list op xs ...)
      (for/fold ([tr Aw&]
                 [A-terms A-terms])
                ([x xs]
@@ -62,7 +61,8 @@
        (define d-op (apply (partial i op)
                            (map (λ (x) (trace-of x)) xs)))
        (update-tr+terms tr A-terms
-                        x (traced (*& Aw& d-op))))]))
+                        x (traced (*& Aw& d-op))))]
+    [c {values Aw& A-terms}]))
 
 ;; A helper for D/r.  Note the different arguments to partial/f.
 ;;

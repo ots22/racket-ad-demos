@@ -7,9 +7,10 @@
          ;(prefix-in assignment- (only-in "../trace/trace.rkt" id expr))
          "../trace/trace-core.rkt"
          (for-syntax
-          (except-in "../trace/trace.rkt" id expr)
+          (rename-in "../trace/trace.rkt"
+                     [id assignment-id]
+                     [expr assignment-expr]))
           ;(prefix-in assignment- (only-in "../trace/trace.rkt" id expr))
-          )
          (for-syntax "../trace/trace-core.rkt")
          (for-syntax "../trace/diff.rkt"))
         ;; (for-syntax "trace-syntax.rkt"))
@@ -47,10 +48,10 @@
                 [e   (datum->syntax
                       ctx
                       (match (assignment-expr assgn)
-                        [(list 'constant '()) ''()]
-                        [(list 'constant x) x]
-                        [(list 'app op xs ...)
-                         (cons op (map (λ (x) (maybe-arg->id x args)) xs))]))])
+                        [(list op xs ...)
+                         (cons op (map (λ (x) (maybe-arg->id x args)) xs))]
+                        ['() ''()]
+                        [c c]))])
     #'(define var e)))
 
 ;; Given a trace, return syntax corresponding to a sequence of define
@@ -72,8 +73,8 @@
 
 (define-for-syntax (def-expr->expr e)
   (syntax-case e ()
-    [(op xs ...) (list* 'app (syntax->datum #'op) (syntax->datum #'(xs ...)))]
-    [c           (list 'constant (syntax->datum #'c))]))
+    [(op xs ...) (list* (syntax->datum #'op) (syntax->datum #'(xs ...)))]
+    [c           (syntax->datum #'c)]))
 
 
 ;; def->assignment : syntax? -> assignment?

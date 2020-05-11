@@ -25,17 +25,17 @@
          (hash-ref
           dxs y 
           (λ () (match (top-expr (trace-get y tr))
-                  [(list 'constant '())  (traced null&)]
-                  [(list 'constant c)    (traced 0.0)]
-                  [(list 'app 'cons a b) (traced (cons& (d& a) (d& b)))]
-                  [(list 'app 'car ls)   (traced (car& (d& ls)))]
-                  [(list 'app 'cdr ls)   (traced (cdr& (d& ls)))]
-                  [(list 'app op xs ...)
+                  [(list 'cons a b) (traced (cons& (d& a) (d& b)))]
+                  [(list 'car ls)   (traced (car& (d& ls)))]
+                  [(list 'cdr ls)   (traced (cdr& (d& ls)))]
+                  [(list op xs ...)
                    (let ([xs-trs (map (curryr trace-get tr) xs)])
                      (for/fold ([acc& (traced 0.0)])
                                ([x xs]
                                 [i (in-naturals)])
                        (let ([d-op (apply (partial i op) xs-trs)])
-                         (traced (+& acc& (*& d-op (d& x)))))))]))))
+                         (traced (+& acc& (*& d-op (d& x)))))))]
+                  ['()  (traced null&)]
+                  [c    (traced 0.0)]))))
        (d (top-id tr)))
      (helper (apply (top-val f&) xs)))))

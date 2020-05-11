@@ -1,18 +1,22 @@
 #lang racket
 
-;; assignments and traces
-
-(provide (struct-out assignment)
-         assignment
-         make-assignment
+(provide make-assignment
          id
          expr
          val
 
-         (struct-out trace)
+         trace?
+         trace-items
          make-trace
          trace-empty?
          non-empty-trace?
+
+         val->trace
+
+         top
+         top-id
+         top-expr
+         top-val
 
          trace-get
          trace-add
@@ -20,64 +24,14 @@
          trace-remove-duplicates
          trace-filter-out
          trace-prune
-         trace-display
-
-         val->trace
-
-         top
-         top-id
-         top-expr
-         top-val)
+         trace-display)
 
 (require "util.rkt"
+         "assignment.rkt"
          racket/syntax
          (for-syntax racket/syntax))
 
-(module+ test
-  (require rackunit))
-
-(define (expr? e)
-  (match e
-    [(list 'constant _) #t]
-    [(list 'app (? symbol? _) ..1) #t]
-    [_ #f]))
-
-(module+ test
-  (test-case "valid expressions"
-    [check-true  (expr? '(app + a b c))]
-    [check-true  (expr? '(constant '(1 2 3)))]
-    [check-false (expr? '(app + 1 2 3))]
-    [check-false (expr? '(constant 1 2 3))]
-    [check-false (expr? '(app))]
-    [check-false (expr? '(wrong))]
-    [check-false (expr? 'wrong)]
-    [check-false (expr? 1)]))
-
-;; ----------------------------------------
-;; Assignment
-
-;; represents a single assignment of value val, to an id (: symbol?),
-;; as computed by an expression expr; expr must be:
-;; - a value
-;; - a reference to another variable
-;;
-(struct assignment (id expr val)
-  #:transparent
-  #:guard (struct-guard/c symbol? expr? any/c))
-
-(define (make-assignment #:id [id (next-name)]
-                         #:val val
-                         #:expr [expr (list 'constant val)])
-  (assignment id expr val))
-
-;; shorter names for assignment accessors
-(define (id   v) (assignment-id   v))
-(define (expr v) (assignment-expr v))
-(define (val  v) (assignment-val  v))
-
-
-;; ----------------------------------------
-;; Trace
+(module+ test (require rackunit))
 
 (struct trace (items) #:transparent
   #:guard (struct-guard/c (listof assignment?))
@@ -87,7 +41,7 @@
        (when (non-empty-trace? x)
          (write (val (top x)) port))))])
 
-;; alternative constructor
+;; provided constructor
 (define (make-trace . items)
   (trace items))
 
@@ -97,6 +51,31 @@
 (define (non-empty-trace? t)
   (and (trace? t)
        (not (trace-empty? t))))
+
+;; val->trace: make a single-assignment trace containing the given
+;; value (with default id and expr)
+;;
+;; val->trace : any/c -> trace?
+(define (val->trace v)
+  (make-trace (make-assignment #:val v)))
+
+
+;; The head assignment in trace t (which must be non-empty)
+;;
+;; top : trace? -> assignment?
+(define (top t) (car (trace-items t)))
+
+;; helpers: id, expr and val of head assignment
+(define (top-id t)   (id (top t)))
+(define (top-expr t) (expr (top t)))
+(define (top-val t)  (val (top t)))
+
+(module+ test
+  (test-case "top-val"
+    (define tr (make-trace (make-assignment #:id 'b #:val 2)
+                           (make-assignment #:id 'a #:val 1)))
+    (check-equal? (top-val tr) 2)))
+
 
 ;; Extract the trace corresponding to an id i from the trace tr, if it
 ;; is present, or false
@@ -176,7 +155,7 @@
       t
       (let ([head (top t)])
         (trace (cons head (remove-duplicates-before
-                           (cdr (trace-items t)) #:key assignment-id))))))
+                           (cdr (trace-items t)) #:key id))))))
 
 (module+ test
   (define a (make-assignment #:id 'a #:val 0))
@@ -210,41 +189,16 @@
     (check-equal? actual expected)
     (check-equal? (trace-filter-out '(b d) actual) expected)))
 
-
-;; val->trace: make a single-assignment trace containing the given
-;; value (with default id and expr)
-;;
-;; val->trace : any/c -> trace?
-(define (val->trace v)
-  (make-trace (make-assignment #:val v)))
-
-;; The head assignment in trace t (which must be non-empty)
-;;
-;; top : trace? -> assignment?
-(define (top t) (car (trace-items t)))
-
-;; helpers: id, expr and val of head assignment
-(define (top-id t)   (id (top t)))
-(define (top-expr t) (expr (top t)))
-(define (top-val t)  (val (top t)))
-
-(module+ test
-  (test-case "top-val"
-    (define tr (make-trace (make-assignment #:id 'b #:val 2)
-                           (make-assignment #:id 'a #:val 1)))
-    (check-equal? (top-val tr) 2)))
-
-
 ;; Remove orphaned assignments from the trace
 ;;
 ;; trace-prune : trace? -> trace?
 (define (trace-prune t)
   (define (rec t seen)
     (match (top-expr t)
-      [(list 'app f xs ...) (apply set-union
-                                   (map (λ (x) (rec (trace-get x t)
-                                                    (set-add seen x)))
-                                        xs))]
+      [(list f xs ...) (apply set-union
+                              (map (λ (x) (rec (trace-get x t)
+                                               (set-add seen x)))
+                                   xs))]
       [_ seen]))
   (if (trace-empty? t)
       t

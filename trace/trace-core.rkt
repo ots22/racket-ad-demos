@@ -83,7 +83,7 @@ list& trace-display&)
                  (trace-add
                   arg-traces
                   (make-assignment #:id   result-name
-                                   #:expr (list 'app f-name (top-id args) ...)
+                                   #:expr (list f-name (top-id args) ...)
                                    #:val  result))))
              (val->trace f*))))]))
 
