@@ -12,7 +12,9 @@
                      [expr assignment-expr]))
           ;(prefix-in assignment- (only-in "../trace/trace.rkt" id expr))
          (for-syntax "../trace/trace-core.rkt")
-         (for-syntax "../trace/diff.rkt"))
+         (for-syntax "../trace/diff.rkt")
+         "../cons-arithmetic/cons-arithmetic.rkt")
+         ;(for-syntax "../cons-arithmetic/cons-arithmetic.rkt"))
         ;; (for-syntax "trace-syntax.rkt"))
 
 (provide (rename-out (define/d define))

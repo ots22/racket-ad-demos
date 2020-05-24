@@ -42,6 +42,9 @@
                      [not& not]
                      [and& and]
 
+                     [cons-add& cons-add]
+                     [cons-zero& cons-zero]
+
                      [trace-display& trace-display]
 
                      [lambda& lambda]

@@ -4,6 +4,8 @@
          ind-list
          in-indicator
          flip
+         maplist
+         tails
          raises?
          within-rel
          checks->preds
@@ -89,6 +91,16 @@
                            (length (flatten (in-indicator-xs ind))))))
 
 (define ((flip f) a b) (f b a))
+
+(define (maplist f xs)
+  (define (rec xs* result)
+    (if (null? xs*)
+        result
+        (rec (cdr xs*) (cons (f xs*) result))))
+  (reverse (rec xs (list))))
+
+(define (tails xs)
+  (maplist identity xs))
 
 (define (raises? pred? t)
   (with-handlers ([pred?

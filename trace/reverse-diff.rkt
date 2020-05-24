@@ -1,7 +1,8 @@
 #lang racket
 
 (provide A/r
-         D/r)
+         D/r
+         A/s/r)
 
 (require  "util.rkt"
           "trace.rkt"
@@ -10,7 +11,7 @@
           "trace-apply.rkt"
           "primitive-partial.rkt"
           "let-traced.rkt"
-          (suffix-in & "cons-arithmetic.rkt")
+          ;(suffix-in & "cons-arithmetic.rkt")
           (suffix-in & "trace-function.rkt"))
 
 ;; update-tr+terms : trace? (HashTable symbol? (Listof symbol?))
@@ -53,6 +54,13 @@
      (update-tr+terms Aw& A-terms
                       xs (traced
                           (cons& (cons-zero& (car& (trace-of xs))) Aw&)))]
+    [(list 'cons-zero xs)
+     (update-tr+terms Aw& A-terms
+                      xs (traced (cons-zero& (trace-of xs))))]
+    [(list 'cons-add x y)
+     (update-tr+terms Aw& A-terms
+                      x (traced Aw&)
+                      y (traced Aw&))]
     [(list op xs ...)
      (for/fold ([tr Aw&]
                 [A-terms A-terms])
@@ -88,9 +96,11 @@
         (for/list ([k (hash-ref adjoint-terms (id w-assgn))])
           (trace-get k tr)))
 
-      (define Aw& (trace-append
-                   (foldl (top-val cons-add&) (car Aw-terms) (cdr Aw-terms))
-                   tr))
+      (define Aw&
+        (match-let ([(cons x xs) Aw-terms])
+          (trace-append
+           (foldl (top-val cons-add&) x xs)
+           tr)))
       ;; tr* : the assignments needed for the adjoints of the ids in the RHS
       ;;       of w-assgn (appended to tr)
       ;; adjoint-terms* : the updated map of id -> adjoint id
@@ -121,3 +131,10 @@
                     (for/list ([ind (in-indicator (top-val y&))])
                       (define s& (cons->trace ind))
                       (A/r y& arg-ids s&))))))))
+
+(define& (A/s/r s& f&)
+  (val->trace
+   (lambda xs
+     (let ([x-ids (map top-id xs)]
+           [y& (apply (top-val f&) xs)])
+       (A/r y& x-ids s&)))))

@@ -3,54 +3,13 @@
 (provide make-assignment
          assignment?
          expr?
-         (rename-out [id* id]
-                     [expr* expr]
-                     [val* val]))
-
-;; (require "util.rkt")
-
-;; (define (expr? e)
-;;   (match e
-;;     [(list 'constant _) #t]
-;;     [(list 'app (? symbol? _) ..1) #t]
-;;     [_ #f]))
-
-;; (module+ test
-;;   (require rackunit)
-;;   (test-case "valid expressions"
-;;     [check-true  (expr? '(app + a b c))]
-;;     [check-true  (expr? '(constant '(1 2 3)))]
-;;     [check-false (expr? '(app + 1 2 3))]
-;;     [check-false (expr? '(constant 1 2 3))]
-;;     [check-false (expr? '(app))]
-;;     [check-false (expr? '(wrong))]
-;;     [check-false (expr? 'wrong)]
-;;     [check-false (expr? 1)]))
-
-;; ;; represents a single assignment of value val, to an id (: symbol?),
-;; ;; as computed by an expression expr; expr must be:
-;; ;; - a value
-;; ;; - a reference to another variable
-;; ;;
-;; (struct assignment (id expr val)
-;;   #:transparent
-;;   #:guard (struct-guard/c symbol? expr? any/c))
-
-;; (define (make-assignment #:id [id (next-name)]
-;;                          #:val val
-;;                          #:expr [expr (list 'constant val)])
-;;   (assignment id expr val))
-
-;; ;; shorter names for assignment accessors
-;; (define (id   v) (assignment-id   v))
-;; (define (expr v) (assignment-expr v))
-;; (define (val  v) (assignment-val  v))
-
-;; ----------------------------------------
+         (rename-out [assignment-id id]
+                     [assignment-expr expr]
+                     [assignment-val val])
+         uses-in)
 
 (require syntax/parse
          "util.rkt")
-(provide all-defined-out)
 
 (define (make-assignment #:id [id (next-name)]
                          #:val val
@@ -60,13 +19,6 @@
    'val
    (datum->syntax #f val)
    #t))
-
-;; (define-syntax-class a-constant
-;;   [pattern c:boolean]
-;;   [pattern c:char]
-;;   [pattern c:number]
-;;   [pattern c:string]
-;;   [pattern ()])
 
 (define-syntax-class a-expr
   [pattern (id:id ...+)]
@@ -86,20 +38,39 @@
     [a:assignment #t]
     [_ #f]))
 
-(define id*
+(define assignment-id
   (syntax-parser
     [a:assignment (syntax->datum #'a.id)]))
 
-(define expr*
+(define assignment-expr
   (syntax-parser
     [a:assignment (syntax->datum #'a.expr)]))
 
-(define/contract (val* a)
+(define/contract (assignment-val a)
   [-> assignment? any/c]
   (cond
     [(syntax-property a 'val) => syntax->datum]
     [else (raise-arguments-error
            'val
            "This assignment has no result (no 'val' syntax property set)"
-           "id" (id* a)
-           "expr" (expr* a))]))
+           "id" (assignment-id a)
+           "expr" (assignment-expr a))]))
+
+;; The uses of x in an expr e.  A list of each "use" is returned,
+;; where this is highlighted by putting the match in a list.
+;;
+;; uses-in : symbol? expr? -> (listof modified-expr)
+(define (uses-in x e)
+  (match e
+    [(list op as ...)
+     (for/list ([i (indexes-of as x)])
+       (let-values ([(a b) (split-at as i)])
+         (list* op (append a (list (list (car b))) (cdr b)))))]
+    [_ null]))
+
+(module+ test
+  (require rackunit)
+  (check-equal? (uses-in 'x '(+ x y)) '((+ (x) y)))
+  (check-equal? (uses-in 'x '(+ x x)) '((+ (x) x) (+ x (x))))
+  (check-equal? (uses-in 'a '(* x y)) '())
+  (check-equal? (uses-in 'a 5) '()))

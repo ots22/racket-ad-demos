@@ -8,15 +8,16 @@
 ;; The custom #%datum and #%app for the lang are defined here as datum&
 ;; and app&.
 
-(provide datum& app& define& if& and& lambda& null& not& +& -& *& /& =&
-<& >& <=& >=& expt& exp& log& cons& car& cdr& null?& pair?& range&
-list& trace-display&)
+(provide datum& app& define& if& and& lambda& null& not& +& -& *& /&
+         =& <& >& <=& >=& expt& exp& log& cons& car& cdr& null?& pair?&
+         cons-add& cons-zero& range& list& trace-display&)
 
 (require (for-syntax racket/syntax
                      syntax/parse
                      (only-in racket/function const)
                      "syntax-classes.rkt"
                      (only-in "util.rkt" syntax-reverse))
+         "../cons-arithmetic/cons-arithmetic.rkt"
          "trace.rkt"
          "util.rkt")
 
@@ -186,6 +187,9 @@ list& trace-display&)
 (define-traced-primitive (null?& a)  'null? (null? a))
 (define-traced-primitive (pair?& a)  'pair? (pair? a))
 (define-traced-primitive (range& n)  'range (range n))
+
+(define-traced-primitive (cons-add& x y) 'cons-add (cons-add x y))
+(define-traced-primitive (cons-zero& x) 'cons-zero (cons-zero x))
 
 (define& (list& . xs) xs)
 

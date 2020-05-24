@@ -3,24 +3,23 @@
 (provide partial)
 
 (require "trace.rkt"
-         "trace-core.rkt")
+         "trace-core.rkt"
+         "let-traced.rkt")
 
 ;; the i'th partial derivative of op at xs
 ;;
 ;; partial : integer? symbol? -> . (Listof trace?) -> trace?
 (define/match ((partial i op) . xs)
-  [(0 '+ _) (val->trace 1.0)]
-  [(1 '+ _) (val->trace 1.0)]
+  [(0 '+ _) (traced 1.0)]
+  [(1 '+ _) (traced 1.0)]
   ;;
-  [(0 '- _) (val->trace 1.0)]
-  [(1 '- _) (val->trace -1.0)]
+  [(0 '- _) (traced 1.0)]
+  [(1 '- _) (traced -1.0)]
   ;;
-  [(0 '* xs) (second xs)]
-  [(1 '* xs) (first xs)]
+  [(0 '* (list _ y&)) (traced y&)]
+  [(1 '* (list x& _)) (traced x&)]
   ;;
-  [(0 'exp xs) (app& exp& (first xs))]
-  ;;
-  [(0 'identity _) (val->trace 1.0)]
+  [(0 'exp (list x&)) (traced (exp& x&))]
   ;;
   [(_ _ _) (raise-arguments-error
             'partial

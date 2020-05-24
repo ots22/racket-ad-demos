@@ -1,7 +1,8 @@
 #lang racket
 
 (provide partial/f
-         D/f)
+         D/f
+         D/s/f)
 
 (require (for-syntax syntax/parse)
          "util.rkt"
@@ -20,10 +21,13 @@
 (define (d-primitive z-expr tr deriv-map)
   ;; the trace of the derivative of identifier x
   (define-syntax-rule (d x) (trace-get (hash-ref deriv-map x) tr))
+  (define-syntax-rule (trace-of a) (trace-get a tr))
   (match z-expr
     [(list 'cons x y) (traced (cons& (d x) (d y)))]
     [(list 'car ls)   (traced (car& (d ls)))]
     [(list 'cdr ls)   (traced (cdr& (d ls)))]
+    [(list 'cons-add a b) (traced (cons-add& (d a) (d b)))]
+    [(list 'cons-zero x) (traced (cons-zero& (trace-of x)))]
     [(list op xs ...)
      (let ([xs-trs (for/list ([x xs]) (trace-get x tr))])
        (for/fold ([acc& (traced 0.0)])
@@ -33,6 +37,28 @@
            (traced (+& acc& (*& d-op (d x)))))))]
     ['()  (traced null&)]
     [c    (traced 0.0)]))
+
+;; assumes deriv-map contains traces (not just identifiers)
+(define (d-primitive2 z-expr tr deriv-map)
+  ;; the trace of the derivative of identifier x
+  (define-syntax-rule (d x) (hash-ref deriv-map x))
+  (define-syntax-rule (trace-of a) (trace-get a tr))
+  (match z-expr
+    [(list 'cons x y) (traced (cons& (d x) (d y)))]
+    [(list 'car ls)   (traced (car& (d ls)))]
+    [(list 'cdr ls)   (traced (cdr& (d ls)))]
+    [(list 'cons-add a b) (traced (cons-add& (d a) (d b)))]
+    [(list 'cons-zero x) (traced (cons-zero& (trace-of x)))]
+    [(list op xs ...)
+     (let ([xs-trs (for/list ([x xs]) (trace-get x tr))])
+       (for/fold ([acc& (traced 0.0)])
+                 ([x xs]
+                  [i (in-naturals)])
+         (let ([d-op (apply (partial i op) xs-trs)])
+           (traced (+& acc& (*& d-op (d x)))))))]
+    ['()  (traced null&)]
+    [c    (traced 0.0)]))
+
 
 ;; The i'th partial derivative of f, evaluated as xs, computed by
 ;; forward accumulation
@@ -66,7 +92,7 @@
       (define dz&
         (hash-ref
          derivatives (id z-assgn)
-         (λ () (d-primitive (expr z-assgn) result-trace derivatives))))
+         (λ () (d-primitive2 (expr z-assgn) result-trace derivatives))))
       {values
        (trace-append dz& result-trace)
        (hash-set derivatives (id z-assgn) dz&)}))

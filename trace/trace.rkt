@@ -24,7 +24,9 @@
          trace-remove-duplicates
          trace-filter-out
          trace-prune
-         trace-display)
+         trace-display
+
+         depends-on)
 
 (require "util.rkt"
          "assignment.rkt"
@@ -59,8 +61,7 @@
      (for/sum ([a1 (trace-items t1)])
        (+ (hash2-recur (id a1))
           (hash2-recur (expr a1))
-          (hash2-recur (val a1)))))]
-  )
+          (hash2-recur (val a1)))))])
 
 ;; provided constructor
 (define (make-trace . items)
@@ -281,3 +282,12 @@
                   (make-assignment #:id 'a #:val 0.0)))
 
     (check-equal? (~a tr) "1.0")))
+
+
+;; terms in tr that depend on x
+;;
+;; depends-on : symbol? trace? -> (listof trace?)
+(define (depends-on x tr)
+  (map (λ (ti) (apply make-trace ti))
+       (filter-not (λ (ti) (null? (uses-in x (expr (car ti)))))
+                   (tails (trace-items tr)))))
