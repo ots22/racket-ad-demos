@@ -1,9 +1,6 @@
 #lang racket
 
-(provide make-assignment
-         id
-         expr
-         val
+(provide (all-from-out "assignment.rkt")
 
          trace?
          trace-items
