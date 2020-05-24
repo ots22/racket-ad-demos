@@ -7,8 +7,7 @@
          "assignment.rkt"
          "trace.rkt"
          "trace-core.rkt"
-         "primitive-partial.rkt"
-         "../cons-arithmetic/cons-arithmetic.rkt")
+         "primitive-partial.rkt")
 
 (define A/r-memo
   (val->trace
@@ -28,8 +27,8 @@
                 (match term
                   [(list 'cons (list a) b) (traced (car& Aw&))]
                   [(list 'cons a (list b)) (traced (cdr& Aw&))]
-                  [(list 'car (list a)) (traced (cons& Aw& (cons-zero (cdr& x&))))]
-                  [(list 'cdr (list a)) (traced (cons& (cons-zero (cdr& x&)) Aw&))]
+                  [(list 'car (list a)) (traced (cons& Aw& (cons-zero& (cdr& x&))))]
+                  [(list 'cdr (list a)) (traced (cons& (cons-zero& (car& x&)) Aw&))]
                   [(list 'cons-zero (list a)) (traced (cons-zero& x&))]
                   [(list 'cons-add (list a) b) (traced Aw&)]
                   [(list 'cons-add a (list b)) (traced Aw&)]
