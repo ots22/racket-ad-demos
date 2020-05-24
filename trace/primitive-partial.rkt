@@ -3,8 +3,7 @@
 (provide partial)
 
 (require "trace.rkt"
-         "trace-core.rkt"
-         "let-traced.rkt")
+         "trace-core.rkt")
 
 ;; the i'th partial derivative of op at xs
 ;;

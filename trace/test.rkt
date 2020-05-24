@@ -5,11 +5,9 @@
          rackunit/quickcheck
          "trace.rkt"
          "trace-core.rkt"
-         "trace-util.rkt"
          "diff.rkt"
          "util.rkt"
-         "test-util.rkt"
-         "let-traced.rkt")
+         "test-util.rkt")
 
 (module+ test
   (test-case "datum"

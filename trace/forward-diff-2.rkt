@@ -7,9 +7,6 @@
          "util.rkt"
          "trace.rkt"
          "trace-core.rkt"
-         "trace-util.rkt"
-         "trace-apply.rkt"
-         "let-traced.rkt"
          "primitive-partial.rkt")
 
 (define directional-derivative/f

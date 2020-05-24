@@ -7,11 +7,7 @@
 (require  "util.rkt"
           "trace.rkt"
           "trace-core.rkt"
-          "trace-util.rkt"
-          "trace-apply.rkt"
           "primitive-partial.rkt"
-          "let-traced.rkt"
-          ;(suffix-in & "cons-arithmetic.rkt")
           (suffix-in & "trace-function.rkt"))
 
 ;; update-tr+terms : trace? (HashTable symbol? (Listof symbol?))

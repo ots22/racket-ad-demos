@@ -8,9 +8,6 @@
          "util.rkt"
          "trace.rkt"
          "trace-core.rkt"
-         "trace-util.rkt"
-         "trace-apply.rkt"
-         "let-traced.rkt"
          "primitive-partial.rkt")
 
 ;; takes an 'expr', a trace, and an environment (mapping of values

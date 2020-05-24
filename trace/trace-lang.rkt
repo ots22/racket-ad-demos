@@ -1,8 +1,7 @@
 #lang racket
 
 (require "trace.rkt"
-         "trace-core.rkt"
-         "trace-apply.rkt")
+         "trace-core.rkt")
 
 (provide #%module-begin
          #%top

@@ -10,7 +10,9 @@
 
 (provide datum& app& define& if& and& lambda& null& not& +& -& *& /&
          =& <& >& <=& >=& expt& exp& log& cons& car& cdr& null?& pair?&
-         cons-add& cons-zero& range& list& trace-display&)
+         cons-add& cons-zero& range& list& trace-display&
+         traced cons->trace trace->cons trace-e
+         apply&)
 
 (require (for-syntax racket/syntax
                      syntax/parse
@@ -194,3 +196,36 @@
 (define& (list& . xs) xs)
 
 (define trace-display& (val->trace trace-display))
+
+(define-syntax (traced stx)
+  (syntax-parse stx
+    [(_ body ...)
+     (with-syntax ([app (datum->syntax stx '#%app)]
+                   [datum (datum->syntax stx '#%datum)])
+       #'(let-syntax ([app (make-rename-transformer #'app&)]
+                      [datum (make-rename-transformer #'datum&)])
+           body ...))]))
+
+(define (cons->trace x)
+  (cond
+    [(null? x)  null&]
+    [(pair? x)  (app& cons& (cons->trace (car x)) (cons->trace (cdr x)))]
+    [(trace? x) x]
+    [else       (val->trace x)]))
+
+(define (trace->cons tr)
+  (cond
+    [(null? (top-val tr)) null]
+    [(pair? (top-val tr)) (cons (trace->cons (app& car& tr))
+                                (trace->cons (app& cdr& tr)))]
+    [else tr]))
+
+(define (trace-e tr)
+  (cond
+    [(null? (top-val tr)) null]
+    [(pair? (top-val tr)) (cons (traced (car& tr))
+                                (trace-e (traced (cdr& tr))))]
+    [else tr]))
+
+(define& (apply& f xs)
+  (apply (top-val f) (trace->cons xs)))
