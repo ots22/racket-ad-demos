@@ -114,10 +114,13 @@
   (define (cube x) (* x (* x x)))
 
   (define cube_0  (D/f cube 1.0))
+  (define cube_0-memo  (D/f cube 1.0))
   (define (cube_0/expect x)  (* 3.0 (* x x)))
 
   (define (∇cube/f x) (list ((D/f cube 1.0) x)))
+  (define (∇cube/f-memo x) (list ((D/f cube 1.0) x)))
   (define ∇cube/r (A/r cube 1.0))
+  (define ∇cube/r-memo (A/r cube 1.0))
   (define (∇cube/expect x) (list (cube_0/expect x)))
 
   ;;
@@ -130,6 +133,7 @@
     (rec x n 1.0))
 
   (define pow_0 (D/f pow 1.0 0.0))
+  (define pow_0-memo (D/f-memo pow 1.0 0.0))
   (define (pow_0/expect x n) (* n (pow x (- n 1))))
 
   ;;
@@ -137,13 +141,17 @@
   (define (f x y) (+ x (* y y)))
 
   (define f_0 (D/f f 1.0 0.0))
+  (define f_0-memo (D/f-memo f 1.0 0.0))
   (define (f_0/expect x y) 1.0)
 
   (define f_1 (D/f f 0.0 1.0))
+  (define f_1-memo (D/f-memo f 0.0 1.0))
   (define (f_1/expect x y) (* 2.0 y))
 
   (define (∇f/f x y) (list (f_0 x y) (f_1 x y)))
+  (define (∇f/f-memo x y) (list (f_0-memo x y) (f_1-memo x y)))
   (define ∇f/r (A/r f 1.0))
+  (define ∇f/r-memo (A/r-memo f 1.0))
   (define (∇f/expect x y) (list (f_0/expect x y) (f_1/expect x y)))
 
   ;;
@@ -154,16 +162,89 @@
   (define (g2 x y)
     (cdr (cons (* y 2) (* x 3))))
 
-  (define (∇g1/f x y) (list ((D/f g1 1.0 0.0) x y)
-                            ((D/f g1 0.0 1.0) x y)))
+  (define (∇g1/f x y)
+    (list ((D/f g1 1.0 0.0) x y)
+          ((D/f g1 0.0 1.0) x y)))
+  (define (∇g1/f-memo x y)
+    (list ((D/f-memo g1 1.0 0.0) x y)
+          ((D/f-memo g1 0.0 1.0) x y)))
+
   (define ∇g1/r (A/r g1 1.0))
+  (define ∇g1/r-memo (A/r-memo g1 1.0))
   (define (∇g1/expect x y) (list 0.0 2.0))
 
-  (define (∇g2/f x y) (list ((D/f g2 1.0 0.0) x y)
-                            ((D/f g2 0.0 1.0) x y)))
+  (define (∇g2/f x y)
+    (list ((D/f g2 1.0 0.0) x y)
+          ((D/f g2 0.0 1.0) x y)))
+  (define (∇g2/f-memo x y)
+    (list ((D/f-memo g2 1.0 0.0) x y)
+          ((D/f-memo g2 0.0 1.0) x y)))
+
   (define ∇g2/r (A/r g2 1.0))
+  (define ∇g2/r-memo (A/r-memo g2 1.0))
   (define (∇g2/expect x y) (list 3.0 0.0))
 
+  ;;
+
+  (define (g3 c1 c2)
+    (cons (cdr c1) (car c1)))
+
+  (define (Jg3/f c1 c2)
+    (list (cons ((D/f g3 (cons 1.0 0.0) (cons 0.0 0.0)) c1 c2)
+                ((D/f g3 (cons 0.0 1.0) (cons 0.0 0.0)) c1 c2))
+          (cons ((D/f g3 (cons 0.0 0.0) (cons 1.0 0.0)) c1 c2)
+                ((D/f g3 (cons 0.0 0.0) (cons 0.0 1.0)) c1 c2))))
+
+  (define (Jg3/f-memo c1 c2)
+    (list (cons ((D/f-memo g3 (cons 1.0 0.0) (cons 0.0 0.0)) c1 c2)
+                ((D/f-memo g3 (cons 0.0 1.0) (cons 0.0 0.0)) c1 c2))
+          (cons ((D/f-memo g3 (cons 0.0 0.0) (cons 1.0 0.0)) c1 c2)
+                ((D/f-memo g3 (cons 0.0 0.0) (cons 0.0 1.0)) c1 c2))))
+
+  (define (Jg3/expect c1 c2)
+    (list (cons (cons 0.0 1.0) (cons 1.0 0.0))
+          (cons (cons 0.0 0.0) (cons 0.0 0.0))))
+
+  (define (J*g3/r c1 c2)
+    (cons ((A/r g3 (cons 1.0 0.0)) c1 c2)
+          ((A/r g3 (cons 0.0 1.0)) c1 c2)))
+
+  (define (J*g3/r-memo c1 c2)
+    (cons ((A/r-memo g3 (cons 1.0 0.0)) c1 c2)
+          ((A/r-memo g3 (cons 0.0 1.0)) c1 c2)))
+
+  (define (J*g3/expect c1 c2)
+    (cons (list (cons 0.0 1.0) (cons 0.0 0.0))
+          (list (cons 1.0 0.0) (cons 0.0 0.0))))
+
+  ;;
+
+  (define (g4 c1 c2)
+    (cons-add
+     (cons-zero c1)
+     (cons-add (cons (* 2 (car c1)) (cdr c1))
+               (cons (cdr c2) (* 2 (car c2))))))
+
+  (define (g4_0/f c1 c2)
+    (cons ((D/f g4 (cons 1.0 0.0) (cons-zero c2)) c1 c2)
+          ((D/f g4 (cons 0.0 1.0) (cons-zero c2)) c1 c2)))
+
+  (define (g4_0/f-memo c1 c2)
+    (cons ((D/f-memo g4 (cons 1.0 0.0) (cons-zero c2)) c1 c2)
+          ((D/f-memo g4 (cons 0.0 1.0) (cons-zero c2)) c1 c2)))
+
+  (define (g4_0/r c1 c2)
+    (cons (car ((A/r g4 (cons 1.0 0.0)) c1 c2))
+          (car ((A/r g4 (cons 0.0 1.0)) c1 c2))))
+
+  (define (g4_0/r-memo c1 c2)
+    (cons (car ((A/r-memo g4 (cons 1.0 0.0)) c1 c2))
+          (car ((A/r-memo g4 (cons 0.0 1.0)) c1 c2))))
+
+  (define (g4_0/expect c1 c2)
+    (cons (cons 2.0 0.0) (cons 0.0 1.0)))
+
+  ;;
 )
 
 (require 'derivatives-1)
@@ -178,47 +259,93 @@
     (check-property
      (property ([x (gen-trace (choose-real -1e2 1e2))])
                (and
-                (equal? (top-val [traced (cube_0 x)])
-                        (top-val [traced (cube_0/expect x)]))
+                (all-equal? (top-val [traced (cube_0 x)])
+                            (top-val [traced (cube_0-memo x)])
+                            (top-val [traced (cube_0/expect x)]))
 
-                (equal? (top-val [traced (∇cube/f x)])
-                        (top-val [traced (∇cube/expect x)]))
-
-                (equal? (top-val [traced (∇cube/r x)])
-                        (top-val [traced (∇cube/expect x)])))))
+                (all-equal? (top-val [traced (∇cube/expect x)])
+                            (top-val [traced (∇cube/f x)])
+                            (top-val [traced (∇cube/f-memo x)])
+                            (top-val [traced (∇cube/r x)])
+                            (top-val [traced (∇cube/r-memo x)]))
+                )))
 
     (check-property
      (property ([x (gen-trace (choose-real 0.0 1e2))]
                 [n (gen-trace (choose-integer 0 10))])
-               (within-rel 1e-15
-                           (top-val [traced (pow_0 x n)])
-                           (top-val [traced (pow_0/expect x n)]))))
+               (let ([pow_0-expected (top-val (traced (pow_0/expect x n)))])
+                 (and
+                  (within-rel 1e-15
+                              (top-val [traced (pow_0 x n)])
+                              pow_0-expected)
+                  (within-rel 1e-15
+                              (top-val [traced (pow_0-memo x n)])
+                              pow_0-expected)))))
 
     (check-property
      (property ([x (gen-trace (choose-real -1e5 1e5))]
                 [y (gen-trace (choose-real -1e5 1e5))])
                (and
-                (equal? (top-val [traced (f_0 x y)])
-                        (top-val [traced (f_0/expect x y)]))
-                (equal? (top-val [traced (f_1 x y)])
-                        (top-val [traced (f_1/expect x y)]))
-                (equal? (top-val [traced (∇f/f x y)])
-                        (top-val [traced (∇f/expect x y)]))
-                (equal? (top-val [traced (∇f/r x y)])
-                        (top-val [traced (∇f/expect x y)])))))
+                (all-equal? (top-val [traced (f_0/expect x y)])
+                            (top-val [traced (f_0 x y)])
+                            (top-val [traced (f_0-memo x y)]))
+
+                (all-equal? (top-val [traced (f_1/expect x y)])
+                            (top-val [traced (f_1 x y)])
+                            (top-val [traced (f_1-memo x y)]))
+
+                (all-equal? (top-val [traced (∇f/expect x y)])
+                            (top-val [traced (∇f/f x y)])
+                            (top-val [traced (∇f/f-memo x y)])
+                            (top-val [traced (∇f/r x y)])
+                            (top-val [traced (∇f/r-memo x y)])))))
 
     (check-property
      (property ([x (gen-trace (choose-real -1e5 1e5))]
                 [y (gen-trace (choose-real -1e5 1e5))])
                (and
-                (equal? (top-val [traced (∇g1/f x y)])
-                        (top-val [traced (∇g1/expect x y)]))
-                (equal? (top-val [traced (∇g1/r x y)])
-                        (top-val [traced (∇g1/expect x y)]))
-                (equal? (top-val [traced (∇g2/f x y)])
-                        (top-val [traced (∇g2/expect x y)]))
-                (equal? (top-val [traced (∇g2/r x y)])
-                        (top-val [traced (∇g2/expect x y)])))))))
+                (all-equal? (top-val [traced (∇g1/expect x y)])
+                            (top-val [traced (∇g1/f x y)])
+                            (top-val [traced (∇g1/f-memo x y)])
+                            (top-val [traced (∇g1/r x y)])
+                            (top-val [traced (∇g1/r-memo x y)]))
+
+                (all-equal? (top-val [traced (∇g2/expect x y)])
+                            (top-val [traced (∇g2/f x y)])
+                            (top-val [traced (∇g2/f-memo x y)])
+                            (top-val [traced (∇g2/r x y)])
+                            (top-val [traced (∇g2/r-memo x y)])))))
+
+    (check-property
+     (property ([x1 (gen-trace (choose-real -1e5 1e5))]
+                [x2 (gen-trace (choose-real -1e5 1e5))]
+                [y1 (gen-trace (choose-real -1e5 1e5))]
+                [y2 (gen-trace (choose-real -1e5 1e5))])
+               (let ([c1 (traced (cons& x1 x2))]
+                     [c2 (traced (cons& y1 y2))])
+                 (and
+                  (all-equal? (top-val [traced (Jg3/expect c1 c2)])
+                              (top-val [traced (Jg3/f c1 c2)])
+                              (top-val [traced (Jg3/f-memo c1 c2)]))
+                  (all-equal? (top-val [traced (J*g3/expect c1 c2)])
+                              (top-val [traced (J*g3/r c1 c2)])
+                              (top-val [traced (J*g3/r-memo c1 c2)]))))))
+
+    (check-property
+     (property ([x1 (gen-trace (choose-real -1e5 1e5))]
+                [x2 (gen-trace (choose-real -1e5 1e5))]
+                [y1 (gen-trace (choose-real -1e5 1e5))]
+                [y2 (gen-trace (choose-real -1e5 1e5))])
+               (let ([c1 (traced (cons& x1 x2))]
+                     [c2 (traced (cons& y1 y2))])
+                 (all-equal?
+                  (top-val [traced (g4_0/expect c1 c2)])
+                  (top-val [traced (g4_0/f c1 c2)])
+                  (top-val [traced (g4_0/f-memo c1 c2)])
+                  (top-val [traced (g4_0/r c1 c2)])
+                  (top-val [traced (g4_0/r-memo c1 c2)])))))
+    ;;
+    ))
 
 ;; ----------------------------------------
 
