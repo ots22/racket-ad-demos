@@ -155,11 +155,11 @@
 (define& (A/r f& Ay&)
   (val->trace
    (λ xs
-     (let ([y& (apply (top-val f&) xs)])               
+     (let ([y& (apply (top-val f&) xs)])
        (apply (top-val (traced (A/r* y& Ay&))) xs)))))
 
 (define& (A/r-memo f& Ay&)
   (val->trace
    (λ xs
-     (let ([y& (apply (top-val f&) xs)])               
+     (let ([y& (apply (top-val f&) xs)])
        (apply (top-val (traced (A/r*-memo y& Ay&))) xs)))))
