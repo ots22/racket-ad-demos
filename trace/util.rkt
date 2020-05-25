@@ -1,6 +1,7 @@
 #lang racket
 
-(provide reshape-as
+(provide all-equal?
+         reshape-as
          ind-list
          in-indicator
          flip
@@ -26,6 +27,12 @@
 
 (module+ test
   (require rackunit))
+
+(define (all-equal? . xs)
+  (if (null? xs)
+      #t
+      (andmap (curry equal? (car xs))
+              (cdr xs))))
 
 (define (reshape-as shape data)
   (define-values (result _)
