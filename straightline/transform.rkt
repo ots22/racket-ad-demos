@@ -109,10 +109,11 @@
   ;; machinery we built
   (let* ([arg-ids (syntax->datum args)]
 
-         [arg-tr
-          (apply
-           make-trace
-           (map (λ (s) (make-assignment #:id s #:val +nan.0)) arg-ids))]
+         [arg-trs (map (λ (s)
+                         (make-trace (make-assignment #:id s #:val +nan.0)))
+                       arg-ids)]
+         
+         [arg-tr (apply trace-append arg-trs)]
 
          [body-tr (defs->trace body)]
 
@@ -120,8 +121,11 @@
 
          [seed-tr (make-trace (make-assignment #:val 1))]
 
-         [A-tr (trace-filter-out arg-ids
-                                 (A/r (trace-prune tr) arg-ids seed-tr))])
+         [A-tr (trace-filter-out
+                arg-ids
+                (apply (top-val
+                        ((top-val A/r*) (trace-prune tr) seed-tr))
+                       arg-trs))])
 
     (trace->defs A-tr args body)))
 
