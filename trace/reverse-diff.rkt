@@ -1,17 +1,19 @@
 #lang racket
 
-(provide A/r
-         D/r
-         A/s/r)
+(provide A/r*
+         A/r*-memo
+         A/r
+         A/r-memo)
 
-(require  "util.rkt"
+(require memoize
+         "util.rkt"
           "trace.rkt"
           "trace-core.rkt"
-          "primitive-partial.rkt"
-          (suffix-in & "trace-function.rkt"))
+          "primitive-partial.rkt")
 
-;; update-tr+terms : trace? (HashTable symbol? (Listof symbol?))
-;;     -> (Values trace? (HashTable symbol? (Listof symbol?)))
+;; update-tr+terms :
+;;              trace? (HashTable symbol? (Listof trace?)) [symbol? trace?] ...
+;;   -> {Values trace? (HashTable symbol? (Listof trace?))}
 (define (update-tr+terms Aw& A-terms . id+As)
   {values
    (apply trace-append (append (map second (chunk 2 id+As))
@@ -68,69 +70,96 @@
                         x (traced (*& Aw& d-op))))]
     [c {values Aw& A-terms}]))
 
-;; A helper for D/r.  Note the different arguments to partial/f.
+;; Ay& : the initial 'seed' (adjoint of y), which must be a trace of a pair with
+;;       the same shape as y.  This should almost certainly have a '1' in one
+;;       position, and '0's elsewhere.
+;; y&  : the trace of the result of calling the function to be differentiated
+;; xs  : the traces of the variables with respect to which we are
+;;       differentiating
 ;;
-;;      y& : the trace of the result of calling the function
-;; arg-ids : the variables with respect to which we are
-;;           differentiating (symbols)
-;;      s& : the initial 'seed' (adjoint of y), which must be a trace
-;;           of a pair with the same shape as y.  This should almost
-;;           certainly have a '1' in one position, and '0's elsewhere.
-;;
-;; A/r : trace? (Listof symbol?) trace? -> trace?
-(define (A/r y& arg-ids s&)
-  (define-values (tr _ adjoints)
-    (for/fold ([tr (trace-append s& y&)]
-               ;; terms (Listof ids) contributing to the adjoint
-               [adjoint-terms (hash (top-id y&) (list (top-id s&)))]
-               ;; the adjoints of each id seen
-               [adjoints (hash)])
-              ;; iterate through each assignment, starting with the
-              ;; most recent
-              ([w-assgn (trace-items y&)])
-      (define/contract Aw-terms (non-empty-listof trace?)
-        (for/list ([k (hash-ref adjoint-terms (id w-assgn))])
-          (trace-get k tr)))
-
-      (define Aw&
-        (match-let ([(cons x xs) Aw-terms])
-          (trace-append
-           (foldl (top-val cons-add&) x xs)
-           tr)))
-      ;; tr* : the assignments needed for the adjoints of the ids in the RHS
-      ;;       of w-assgn (appended to tr)
-      ;; adjoint-terms* : the updated map of id -> adjoint id
-      (define-values (tr* adjoint-terms*)
-        (A-primitive (expr w-assgn) Aw& adjoint-terms))
-
-      {values tr*
-              adjoint-terms*
-              (hash-set adjoints (id w-assgn) (top-id Aw&))}))
-
-  (let* ([tr* (trace-append (val->trace 0.0) tr)]
-         [zero-id (top-id tr*)])
-    (trace-prune
-     (cons->trace
-      (for/list ([x arg-ids])
-        (trace-get (hash-ref adjoints x zero-id) tr*))))))
-
-;; The Jacobian of f at xs, computed by reverse accumulation
-;;
-;; D/r : (trace? ... -> trace?) -> (Listof trace?) -> trace?
-(define& (D/r f&)
+;; A/r : trace? trace? -> (Listof trace?) -> trace?
+(define& (A/r* y& Ay&)
   (val->trace
-   (lambda xs ;; not lambda&
-     (let ([arg-ids (map top-id xs)]
-           [y& (apply (top-val f&) xs)])
-       (cons->trace
-        (reshape-as (top-val y&)
-                    (for/list ([ind (in-indicator (top-val y&))])
-                      (define s& (cons->trace ind))
-                      (A/r y& arg-ids s&))))))))
+   (λ xs
+     (define-values (tr _ adjoints)
+       (for/fold ([tr (trace-append Ay& y&)]
+                  ;; terms (Listof ids) contributing to the adjoint
+                  [adjoint-terms (hash (top-id y&) (list (top-id Ay&)))]
+                  ;; the adjoints of each id seen
+                  [adjoints (hash)])
+                 ;; iterate through each assignment, starting with the
+                 ;; most recent
+                 ([w-assgn (trace-items y&)])
+         (define/contract Aw-terms (non-empty-listof trace?)
+           (for/list ([k (hash-ref adjoint-terms (id w-assgn))])
+             (trace-get k tr)))
 
-(define& (A/s/r s& f&)
+         (define Aw&
+           (match-let ([(cons a as) Aw-terms])
+             (trace-append
+              (foldl (top-val cons-add&) a as)
+              tr)))
+         ;; tr* : the assignments needed for the adjoints of the ids in the RHS
+         ;;       of w-assgn (appended to tr)
+         ;; adjoint-terms* : the updated map of id -> adjoint id
+         (define-values (tr* adjoint-terms*)
+           (A-primitive (expr w-assgn) Aw& adjoint-terms))
+
+         {values tr*
+                 adjoint-terms*
+                 (hash-set adjoints (id w-assgn) (top-id Aw&))}))
+
+     (let* ([tr* (trace-append (val->trace 0.0) tr)]
+            [zero-id (top-id tr*)])
+       (trace-prune
+        (cons->trace
+         (for/list ([x (map top-id xs)])
+           (trace-get (hash-ref adjoints x zero-id) tr*))))))))
+
+;; ----------------------------------------
+
+(define& (A/r*-memo y& Ay&)
   (val->trace
-   (lambda xs
-     (let ([x-ids (map top-id xs)]
-           [y& (apply (top-val f&) xs)])
-       (A/r y& x-ids s&)))))
+   (λ xs
+     ;; A : symbol? -> trace?
+     (define/memo (A x)
+       (define A& (val->trace A))
+       (define x& (trace-get x y&))
+       (if (eq? x (top-id y&))
+           Ay&
+           (for*/fold ([acc& (traced (cons-zero& x&))])
+                      ([w& (depends-on x y&)]
+                       [term (uses-in x (top-expr w&))])
+             (define Aw& (A (top-id w&)))
+             (match term
+               [(list 'cons (list a) b) (traced (car& Aw&))]
+               [(list 'cons a (list b)) (traced (cdr& Aw&))]
+               [(list 'car (list a))
+                (traced (cons& Aw& (cons-zero& (cdr& x&))))]
+               [(list 'cdr (list a))
+                (traced (cons& (cons-zero& (car& x&)) Aw&))]
+               [(list 'cons-zero (list a)) (traced (cons-zero& x&))]
+               [(list 'cons-add (list a) b) (traced Aw&)]
+               [(list 'cons-add a (list b)) (traced Aw&)]
+               [(list op a ... (list b) c ...)
+                (let ([d-op (apply (partial (length a) op)
+                                   (map (curryr trace-get y&)
+                                        (append a (list b) c)))])
+                  (traced (+& acc& (*& Aw& d-op))))]
+               ;; we know there *is* a use, so an error if we get here
+               ))))
+     (cons->trace (map (compose1 A top-id) xs)))))
+
+;; ----------------------------------------
+
+(define& (A/r f& Ay&)
+  (val->trace
+   (λ xs
+     (let ([y& (apply (top-val f&) xs)])               
+       (apply (top-val (traced (A/r* y& Ay&))) xs)))))
+
+(define& (A/r-memo f& Ay&)
+  (val->trace
+   (λ xs
+     (let ([y& (apply (top-val f&) xs)])               
+       (apply (top-val (traced (A/r*-memo y& Ay&))) xs)))))
