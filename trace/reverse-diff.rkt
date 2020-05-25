@@ -109,7 +109,7 @@
                  adjoint-terms*
                  (hash-set adjoints (id w-assgn) (top-id Aw&))}))
 
-     (let* ([tr* (trace-append (val->trace 0.0) tr)]
+     (let* ([tr* (trace-append (traced (cons-zero& Ay&)) tr)]
             [zero-id (top-id tr*)])
        (trace-prune
         (cons->trace
