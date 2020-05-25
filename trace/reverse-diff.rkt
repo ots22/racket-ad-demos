@@ -132,23 +132,25 @@
                       ([w& (depends-on x y&)]
                        [term (uses-in x (top-expr w&))])
              (define Aw& (A (top-id w&)))
-             (match term
-               [(list 'cons (list a) b) (traced (car& Aw&))]
-               [(list 'cons a (list b)) (traced (cdr& Aw&))]
-               [(list 'car (list a))
-                (traced (cons& Aw& (cons-zero& (cdr& x&))))]
-               [(list 'cdr (list a))
-                (traced (cons& (cons-zero& (car& x&)) Aw&))]
-               [(list 'cons-zero (list a)) (traced (cons-zero& x&))]
-               [(list 'cons-add (list a) b) (traced Aw&)]
-               [(list 'cons-add a (list b)) (traced Aw&)]
-               [(list op a ... (list b) c ...)
-                (let ([d-op (apply (partial (length a) op)
-                                   (map (curryr trace-get y&)
-                                        (append a (list b) c)))])
-                  (traced (+& acc& (*& Aw& d-op))))]
-               ;; we know there *is* a use, so an error if we get here
-               ))))
+             (define inc&
+               (match term
+                 [(list 'cons (list a) b) (traced (car& Aw&))]
+                 [(list 'cons a (list b)) (traced (cdr& Aw&))]
+                 [(list 'car (list a))
+                  (traced (cons& Aw& (cons-zero& (cdr& x&))))]
+                 [(list 'cdr (list a))
+                  (traced (cons& (cons-zero& (car& x&)) Aw&))]
+                 [(list 'cons-zero (list a)) (traced (cons-zero& x&))]
+                 [(list 'cons-add (list a) b) (traced Aw&)]
+                 [(list 'cons-add a (list b)) (traced Aw&)]
+                 [(list op a ... (list b) c ...)
+                  (let ([d-op (apply (partial (length a) op)
+                                     (map (curryr trace-get y&)
+                                          (append a (list b) c)))])
+                    (traced (*& Aw& d-op)))]
+                 ;; we know there *is* a use, so an error if we get here
+                 ))
+             (traced (cons-add& acc& inc&)))))
      (cons->trace (map (compose1 A top-id) xs)))))
 
 ;; ----------------------------------------
