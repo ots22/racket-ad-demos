@@ -121,10 +121,11 @@
 (define& (A/r*-memo y& Ay&)
   (val->trace
    (λ xs
+     ;; unused arguments not present in y&, so explicitly append xs
+     (define y+xs& (apply trace-append y& xs))
      ;; A : symbol? -> trace?
      (define/memo (A x)
-       (define A& (val->trace A))
-       (define x& (trace-get x y&))
+       (define x& (trace-get x y+xs&))
        (if (eq? x (top-id y&))
            Ay&
            (for*/fold ([acc& (traced (cons-zero& x&))])
