@@ -13,7 +13,7 @@
   (test-case "datum"
     (define d (datum& . 1.0))
     (check-equal? (top-val d) 1.0)
-    (check-equal? (top-expr d) 1.0)
+    (check-equal? (syntax->datum (top-expr d)) 1.0)
     (check-equal? (length (trace-items d)) 1))
 
   (test-case "app"

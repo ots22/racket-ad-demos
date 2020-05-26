@@ -3,13 +3,13 @@
 (require (for-syntax racket)
          (for-syntax racket/syntax)
          (for-syntax syntax/parse)
-         (except-in "../trace/trace.rkt" id expr)
+         (except-in "../trace/trace.rkt" aid aexpr)
          ;(prefix-in assignment- (only-in "../trace/trace.rkt" id expr))
          "../trace/trace-core.rkt"
          (for-syntax
           (rename-in "../trace/trace.rkt"
-                     [id assignment-id]
-                     [expr assignment-expr]))
+                     [aid assignment-id]
+                     [aexpr assignment-expr]))
           ;(prefix-in assignment- (only-in "../trace/trace.rkt" id expr))
          (for-syntax "../trace/trace-core.rkt")
          (for-syntax "../trace/diff.rkt")

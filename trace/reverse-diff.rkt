@@ -6,14 +6,16 @@
          A/r-memo)
 
 (require memoize
+         syntax/id-table
+         syntax/parse
          "util.rkt"
-          "trace.rkt"
-          "trace-core.rkt"
-          "primitive-partial.rkt")
+         "trace.rkt"
+         "trace-core.rkt"
+         "primitive-partial.rkt")
 
 ;; update-tr+terms :
-;;              trace? (HashTable symbol? (Listof trace?)) [symbol? trace?] ...
-;;   -> {Values trace? (HashTable symbol? (Listof trace?))}
+;;              trace? (Dictionary symbol? (Listof trace?)) [symbol? trace?] ...
+;;   -> {Values trace? (Dictionary symbol? (Listof trace?))}
 (define (update-tr+terms Aw& A-terms . id+As)
   {values
    (apply trace-append (append (map second (chunk 2 id+As))
@@ -35,39 +37,41 @@
 ;;   - an updated map of terms comprising these adjoints
 ;;
 ;; A-primitive :
-;;   expr? trace? (HashTable symbol? (Listof symbol?))
-;;           -> (Values trace? (HashTable symbol? (Listof symbol?)))
+;;   expr? trace? (Dictionary symbol? (Listof symbol?))
+;;           -> (Values trace? (Dictionary symbol? (Listof symbol?)))
 (define (A-primitive w-expr Aw& A-terms)
   (define-syntax-rule (trace-of a) (trace-get a Aw&))
-  (match w-expr
-    [(list 'cons x y)
+  (syntax-parse w-expr
+    #:datum-literals (cons car cdr cons-zero cons-add)
+    [(cons x y)
      (update-tr+terms Aw& A-terms
-                      x (traced (car& Aw&))
-                      y (traced (cdr& Aw&)))]
-    [(list 'car xs)
+                      #'x (traced (car& Aw&))
+                      #'y (traced (cdr& Aw&)))]
+    [(car xs)
      (update-tr+terms Aw& A-terms
-                      xs (traced
-                          (cons& Aw& (cons-zero& (cdr& (trace-of xs))))))]
-    [(list 'cdr xs)
+                      #'xs (traced
+                            (cons& Aw& (cons-zero& (cdr& (trace-of #'xs))))))]
+    [(cdr xs)
      (update-tr+terms Aw& A-terms
-                      xs (traced
-                          (cons& (cons-zero& (car& (trace-of xs))) Aw&)))]
-    [(list 'cons-zero xs)
+                      #'xs (traced
+                            (cons& (cons-zero& (car& (trace-of #'xs))) Aw&)))]
+    [(cons-zero xs)
      (update-tr+terms Aw& A-terms
-                      xs (traced (cons-zero& (trace-of xs))))]
-    [(list 'cons-add x y)
+                      #'xs (traced (cons-zero& (trace-of #'xs))))]
+    [(cons-add x y)
      (update-tr+terms Aw& A-terms
-                      x (traced Aw&)
-                      y (traced Aw&))]
-    [(list op xs ...)
-     (for/fold ([tr Aw&]
-                [A-terms A-terms])
-               ([x xs]
-                [i (in-naturals)])
-       (define d-op (apply (partial i op)
-                           (map (λ (x) (trace-of x)) xs)))
-       (update-tr+terms tr A-terms
-                        x (traced (*& Aw& d-op))))]
+                      #'x (traced Aw&)
+                      #'y (traced Aw&))]
+    [(op xs ...)
+     (let ([xs-ids (syntax-e #'(xs ...))])
+       (for/fold ([tr Aw&]
+                  [A-terms A-terms])
+                 ([x xs-ids]
+                  [i (in-naturals)])
+         (define d-op (apply (partial i (syntax->datum #'op))
+                             (map (λ (x) (trace-of x)) xs-ids)))
+         (update-tr+terms tr A-terms
+                          x (traced (*& Aw& d-op)))))]
     [c {values Aw& A-terms}]))
 
 ;; Ay& : the initial 'seed' (adjoint of y), which must be a trace of a pair with
@@ -84,14 +88,15 @@
      (define-values (tr _ adjoints)
        (for/fold ([tr (trace-append Ay& y&)]
                   ;; terms (Listof ids) contributing to the adjoint
-                  [adjoint-terms (hash (top-id y&) (list (top-id Ay&)))]
+                  [adjoint-terms (make-immutable-free-id-table
+                                  (hash (top-id y&) (list (top-id Ay&))))]
                   ;; the adjoints of each id seen
-                  [adjoints (hash)])
+                  [adjoints (make-immutable-free-id-table)])
                  ;; iterate through each assignment, starting with the
                  ;; most recent
                  ([w-assgn (trace-items y&)])
          (define/contract Aw-terms (non-empty-listof trace?)
-           (for/list ([k (hash-ref adjoint-terms (id w-assgn))])
+           (for/list ([k (dict-ref adjoint-terms (aid w-assgn))])
              (trace-get k tr)))
 
          (define Aw&
@@ -103,18 +108,18 @@
          ;;       of w-assgn (appended to tr)
          ;; adjoint-terms* : the updated map of id -> adjoint id
          (define-values (tr* adjoint-terms*)
-           (A-primitive (expr w-assgn) Aw& adjoint-terms))
+           (A-primitive (aexpr w-assgn) Aw& adjoint-terms))
 
          {values tr*
                  adjoint-terms*
-                 (hash-set adjoints (id w-assgn) (top-id Aw&))}))
+                 (dict-set adjoints (aid w-assgn) (top-id Aw&))}))
 
      (let* ([tr* (trace-append (traced (cons-zero& Ay&)) tr)]
             [zero-id (top-id tr*)])
        (trace-prune
         (cons->trace
          (for/list ([x (map top-id xs)])
-           (trace-get (hash-ref adjoints x zero-id) tr*))))))))
+           (trace-get (dict-ref adjoints x zero-id) tr*))))))))
 
 ;; ----------------------------------------
 
@@ -124,29 +129,33 @@
      ;; unused arguments not present in y&, so explicitly append xs
      (define y+xs& (apply trace-append y& xs))
      ;; A : symbol? -> trace?
-     (define/memo (A x)
+     (define (A x)
        (define x& (trace-get x y+xs&))
-       (if (eq? x (top-id y&))
+       (if (free-identifier=? x (top-id y&))
            Ay&
            (for*/fold ([acc& (traced (cons-zero& x&))])
                       ([w& (depends-on x y&)]
                        [term (uses-in x (top-expr w&))])
              (define Aw& (A (top-id w&)))
              (define inc&
-               (match term
-                 [(list 'cons (list a) b) (traced (car& Aw&))]
-                 [(list 'cons a (list b)) (traced (cdr& Aw&))]
-                 [(list 'car (list a))
+               (syntax-parse term
+                 #:datum-literals (cons car cdr cons-zero cons-add)
+                 [(cons (a) b) (traced (car& Aw&))]
+                 [(cons a (b)) (traced (cdr& Aw&))]
+                 [(car (a))
                   (traced (cons& Aw& (cons-zero& (cdr& x&))))]
-                 [(list 'cdr (list a))
+                 [(cdr (a))
                   (traced (cons& (cons-zero& (car& x&)) Aw&))]
-                 [(list 'cons-zero (list a)) (traced (cons-zero& x&))]
-                 [(list 'cons-add (list a) b) (traced Aw&)]
-                 [(list 'cons-add a (list b)) (traced Aw&)]
-                 [(list op a ... (list b) c ...)
-                  (let ([d-op (apply (partial (length a) op)
+                 [(cons-zero (a)) (traced (cons-zero& x&))]
+                 [(cons-add (a) b) (traced Aw&)]
+                 [(cons-add a (b)) (traced Aw&)]
+                 [(op a ... (b) c ...)
+                  (let ([d-op (apply (partial (length (syntax-e #'(a ...)))
+                                              (syntax->datum #'op))
                                      (map (curryr trace-get y&)
-                                          (append a (list b) c)))])
+                                          (append (syntax-e #'(a ...))
+                                                  (list #'b)
+                                                  (syntax-e #'(c ...)))))])
                     (traced (*& Aw& d-op)))]
                  ;; we know there *is* a use, so an error if we get here
                  ))

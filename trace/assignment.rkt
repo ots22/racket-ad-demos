@@ -15,7 +15,7 @@
                          #:val val
                          #:expr [expr val])
   (syntax-property
-   (datum->syntax #f `(def ,id ,expr))
+   #`(def #,id #,expr)
    'val
    (datum->syntax #f val)
    #t))
@@ -39,12 +39,10 @@
     [_ #f]))
 
 (define assignment-id
-  (syntax-parser
-    [a:assignment (syntax->datum #'a.id)]))
+  (syntax-parser [a:assignment #'a.id]))
 
 (define assignment-expr
-  (syntax-parser
-    [a:assignment (syntax->datum #'a.expr)]))
+  (syntax-parser [a:assignment #'a.expr]))
 
 (define/contract (assignment-val a)
   [-> assignment? any/c]
@@ -61,16 +59,20 @@
 ;;
 ;; uses-in : symbol? expr? -> (listof modified-expr)
 (define (uses-in x e)
-  (match e
-    [(list op as ...)
-     (for/list ([i (indexes-of as x)])
-       (let-values ([(a b) (split-at as i)])
-         (list* op (append a (list (list (car b))) (cdr b)))))]
-    [_ null]))
+  (syntax-parse e
+    [(op as ...)
+     (let ([as-ids (syntax-e #'(as ...))])
+       (for/list ([i (indexes-of as-ids x free-identifier=?)])
+         (let-values ([(fst rst) (split-at as-ids i)])
+           (with-syntax ([(a ...) fst]
+                         [b (car rst)]
+                         [(c ...) (cdr rst)])
+             #'(op a ... (b) c ...)))))]
+    [_ '()]))
 
 (module+ test
   (require rackunit)
-  (check-equal? (uses-in 'x '(+ x y)) '((+ (x) y)))
-  (check-equal? (uses-in 'x '(+ x x)) '((+ (x) x) (+ x (x))))
-  (check-equal? (uses-in 'a '(* x y)) '())
-  (check-equal? (uses-in 'a 5) '()))
+  (check-equal? (map syntax->datum (uses-in #'x #'(+ x y))) '((+ (x) y)))
+  (check-equal? (map syntax->datum (uses-in #'x #'(+ x x))) '((+ (x) x) (+ x (x))))
+  (check-equal? (map syntax->datum (uses-in #'a #'(* x y))) '())
+  (check-equal? (map syntax->datum (uses-in #'a #'5)) '()))
