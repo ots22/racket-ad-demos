@@ -19,9 +19,11 @@
                      (only-in racket/function const)
                      "syntax-classes.rkt"
                      (only-in "util.rkt" syntax-reverse))
-         "../cons-arithmetic/cons-arithmetic.rkt"
          "trace.rkt"
-         "util.rkt")
+         "util.rkt"
+         (for-template racket/base
+                       "../cons-arithmetic/cons-arithmetic.rkt")
+         "../cons-arithmetic/cons-arithmetic.rkt")
 
 ;; ----------------------------------------
 ;; * Macros for defining functions and primitive operations
@@ -86,7 +88,7 @@
                  (trace-add
                   arg-traces
                   (make-assignment #:id   result-name
-                                   #:expr (list f-name (top-id args) ...)
+                                   #:expr #`(#,f-name #,(top-id args) ...)
                                    #:val  result))))
              (val->trace f*))))]))
 
@@ -170,28 +172,38 @@
 
 (define null& (val->trace null))
 
-(define-traced-primitive (not& a)    'not   (not a))
-(define-traced-primitive (+& a b)    '+     (+ a b))
-(define-traced-primitive (-& a b)    '-     (- a b))
-(define-traced-primitive (*& a b)    '*     (* a b))
-(define-traced-primitive (/& a b)    '/     (/ a b))
-(define-traced-primitive (=& a b)    '=     (= a b))
-(define-traced-primitive (<& a b)    '<     (< a b))
-(define-traced-primitive (>& a b)    '>     (> a b))
-(define-traced-primitive (<=& a b)   '<=    (<= a b))
-(define-traced-primitive (>=& a b)   '>=    (>= a b))
-(define-traced-primitive (expt& a b) 'expt  (expt a b))
-(define-traced-primitive (exp& a)    'exp   (exp a))
-(define-traced-primitive (log& a)    'log   (log a))
-(define-traced-primitive (cons& a b) 'cons  (cons a b))
-(define-traced-primitive (car& a)    'car   (car a))
-(define-traced-primitive (cdr& a)    'cdr   (cdr a))
-(define-traced-primitive (null?& a)  'null? (null? a))
-(define-traced-primitive (pair?& a)  'pair? (pair? a))
-(define-traced-primitive (range& n)  'range (range n))
+(define ((lift-unknown f) . xs)
+  (if (ormap unknown? xs)
+      (unknown)
+      (apply f xs)))
 
-(define-traced-primitive (cons-add& x y) 'cons-add (cons-add x y))
-(define-traced-primitive (cons-zero& x) 'cons-zero (cons-zero x))
+(define-traced-primitive (not& a)    #'not   ((lift-unknown not) a))
+(define-traced-primitive (+& a b)    #'+     ((lift-unknown +) a b))
+(define-traced-primitive (-& a b)    #'-     ((lift-unknown -) a b))
+(define-traced-primitive (*& a b)    #'*     ((lift-unknown *) a b))
+(define-traced-primitive (/& a b)    #'/     ((lift-unknown /) a b))
+(define-traced-primitive (=& a b)    #'=     ((lift-unknown =) a b))
+(define-traced-primitive (<& a b)    #'<     ((lift-unknown <) a b))
+(define-traced-primitive (>& a b)    #'>     ((lift-unknown >) a b))
+(define-traced-primitive (<=& a b)   #'<=    ((lift-unknown <=) a b))
+(define-traced-primitive (>=& a b)   #'>=    ((lift-unknown >=) a b))
+(define-traced-primitive (expt& a b) #'expt  ((lift-unknown expt) a b))
+(define-traced-primitive (exp& a)    #'exp   ((lift-unknown exp) a))
+(define-traced-primitive (log& a)    #'log   ((lift-unknown log) a))
+(define-traced-primitive (cons& a b) #'cons  ((lift-unknown cons) a b))
+(define-traced-primitive (car& a)    #'car   ((lift-unknown car) a))
+(define-traced-primitive (cdr& a)    #'cdr   ((lift-unknown cdr) a))
+(define-traced-primitive (null?& a)  #'null? ((lift-unknown null?) a))
+(define-traced-primitive (pair?& a)  #'pair? ((lift-unknown pair?) a))
+(define-traced-primitive (range& n)  #'range ((lift-unknown range) n))
+
+(define-traced-primitive (cons-add& x y)
+  #'cons-add
+  ((lift-unknown cons-add) x y))
+
+(define-traced-primitive (cons-zero& x)
+  #'cons-zero
+  ((lift-unknown cons-zero) x))
 
 (define& (list& . xs) xs)
 

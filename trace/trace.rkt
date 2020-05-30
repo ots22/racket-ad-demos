@@ -26,10 +26,7 @@
          depends-on)
 
 (require "util.rkt"
-         (rename-in "assignment.rkt"
-                    [expr aexpr]
-                    [id aid]
-                    [val aval])
+         "assignment.rkt"
          racket/syntax
          syntax/id-set
          syntax/parse
@@ -43,7 +40,8 @@
   [(define write-proc
      (λ (x port mode)
        (when (non-empty-trace? x)
-         (write (top-val x) port))))]
+         (write (top-val x) port)
+         )))]
   ;; #:methods gen:equal+hash
   ;; [(define (equal-proc t1 t2 equal?-recur)
   ;;    (and
@@ -91,9 +89,9 @@
 (define (top t) (car (trace-items t)))
 
 ;; helpers: id, expr and val of head assignment
-(define (top-id t)   (aid (top t)))
-(define (top-expr t) (aexpr (top t)))
-(define (top-val t)  (aval (top t)))
+(define (top-id t)   (assignment-id (top t)))
+(define (top-expr t) (assignment-expr (top t)))
+(define (top-val t)  (assignment-val (top t)))
 
 (module+ test
   (test-case "top-val"
@@ -108,7 +106,7 @@
 ;; trace-get : symbol? trace? -> (U trace? boolean?)
 (define (trace-get s tr)
   (let ([maybe-a (member s (trace-items tr)
-                         (λ (u v) (free-identifier=? u (aid v))))])
+                         (λ (u v) (free-identifier=? u (assignment-id v))))])
     (if maybe-a
         (trace maybe-a)
         #f)))
@@ -126,12 +124,12 @@
                       (make-assignment #:id #'c #:val 3)))
 
     (check-true (andmap free-identifier=?
-                        (map aid (trace-items actual))
-                        (map aid (trace-items expected))))
+                        (map assignment-id (trace-items actual))
+                        (map assignment-id (trace-items expected))))
 
     (check-true (andmap equal?
-                        (map aval (trace-items actual))
-                        (map aval (trace-items expected))))
+                        (map assignment-val (trace-items actual))
+                        (map assignment-val (trace-items expected))))
 
     (check-equal? (trace-get #'d tr)
                   #f)))
@@ -159,12 +157,12 @@
                   (make-assignment #:id 'b #:val 2)))
 
     (check-true (andmap free-identifier=?
-                        (map aid (trace-items actual))
-                        (map aid (trace-items expected))))
+                        (map assignment-id (trace-items actual))
+                        (map assignment-id (trace-items expected))))
 
     (check-true (andmap =
-                        (map aval (trace-items actual))
-                        (map aval (trace-items expected))))))
+                        (map assignment-val (trace-items actual))
+                        (map assignment-val (trace-items expected))))))
 
 
 ;; Append traces ts
@@ -182,8 +180,8 @@
       (apply trace-append (list (make-trace (make-assignment #:val 1))
                                 (make-trace (make-assignment #:val 2)))))
 
-    (check-equal? (map aval (trace-items a)) '(1 2))
-    (check-equal? (map aval (trace-items a)) (map aval (trace-items b)))))
+    (check-equal? (map assignment-val (trace-items a)) '(1 2))
+    (check-equal? (map assignment-val (trace-items a)) (map assignment-val (trace-items b)))))
 
 
 ;; Remove duplicate items from trace.  Will not remove the head item,
@@ -195,7 +193,7 @@
       t
       (let ([head (top t)])
         (trace (cons head (remove-duplicates-before
-                           (cdr (trace-items t)) #:key aid))))))
+                           (cdr (trace-items t)) #:key assignment-id))))))
 
 (module+ test
   (define a (make-assignment #:id 'a #:val 0))
@@ -212,7 +210,7 @@
 ;; trace-filter-out : (Listof symbol?) trace? -> trace?
 (define (trace-filter-out ids t)
   (trace (remove* ids (trace-items t)
-                  (λ (s assgn) (free-identifier=? s (aid assgn))))))
+                  (λ (s assgn) (free-identifier=? s (assignment-id assgn))))))
 
 (module+ test
   (test-case "trace-filter-out"
@@ -228,12 +226,12 @@
     (define actual* (trace-filter-out (list #'b #'d) actual))
 
     (check-true (andmap free-identifier=?
-                        (map aid (trace-items actual))
-                        (map aid (trace-items expected))))
+                        (map assignment-id (trace-items actual))
+                        (map assignment-id (trace-items expected))))
 
     (check-true (andmap free-identifier=?
-                        (map aid (trace-items actual*))
-                        (map aid (trace-items expected))))
+                        (map assignment-id (trace-items actual*))
+                        (map assignment-id (trace-items expected))))
     ))
 
 
@@ -258,7 +256,7 @@
       t
       (let ([seen (rec t (immutable-free-id-set
                           (set (top-id t))))])
-        (trace (filter (λ (a) (set-member? seen (aid a)))
+        (trace (filter (λ (a) (set-member? seen (assignment-id a)))
                        (trace-items t))))))
 
 (module+ test
@@ -275,15 +273,15 @@
                   (make-assignment #:id #'a #:val 0.0)))
 
     (check-true (andmap free-identifier=?
-                        (map aid (trace-items tr-2))
-                        (map aid (trace-items (trace-prune tr-2)))))
+                        (map assignment-id (trace-items tr-2))
+                        (map assignment-id (trace-items (trace-prune tr-2)))))
 
     (define tr-3
       (make-trace (make-assignment #:id 'b #:expr '(exp a) #:val 1.0)))
 
     (check-true (andmap free-identifier=?
-                        (map aid (trace-items tr-3))
-                        (map aid (trace-items (trace-prune tr-3 #f)))))
+                        (map assignment-id (trace-items tr-3))
+                        (map assignment-id (trace-items (trace-prune tr-3 #f)))))
 
     (check-exn exn:fail? (λ () (trace-prune tr-3)))))
 
@@ -291,10 +289,10 @@
 ;; Pretty print a trace
 ;;
 ;; trace-display : trace? -> void?
-(define (trace-display t)
-  (let* ([id-fmt        (map (compose ~a aid) (trace-items t))]
-         [expr-fmt      (map (compose ~a aexpr) (trace-items t))]
-         [val-fmt       (map (compose ~a aval) (trace-items t))]
+(define (trace-display t #:val [val? #t])
+  (let* ([id-fmt        (map (compose ~a syntax->datum assignment-id) (trace-items t))]
+         [expr-fmt      (map (compose ~a syntax->datum assignment-expr) (trace-items t))]
+         [val-fmt       (map (compose ~a assignment-val) (trace-items t))]
          [id-width      (apply max (map string-length id-fmt))]
          [expr-width    (apply max (map string-length expr-fmt))]
          [val-width     (apply max (map string-length val-fmt))])
@@ -321,5 +319,5 @@
 ;; depends-on : symbol? trace? -> (listof trace?)
 (define (depends-on x tr)
   (map (λ (ti) (apply make-trace ti))
-       (filter-not (λ (ti) (null? (uses-in x (aexpr (car ti)))))
+       (filter-not (λ (ti) (null? (uses-in x (assignment-expr (car ti)))))
                    (tails (trace-items tr)))))

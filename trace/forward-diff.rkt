@@ -12,7 +12,8 @@
          "util.rkt"
          "trace.rkt"
          "trace-core.rkt"
-         "primitive-partial.rkt")
+         "primitive-partial.rkt"
+         "../cons-arithmetic/cons-arithmetic.rkt")
 
 ;; Takes an 'expr', a trace, and an environment (mapping of values
 ;; to derivatives in the trace), and returns additional trace items
@@ -24,7 +25,7 @@
   (define-syntax-rule (d x) (dict-ref D-map x))
   (define-syntax-rule (trace-of a) (trace-get a tr))
   (syntax-parse z-expr
-    #:datum-literals (cons car cdr cons-add cons-zero)
+    #:literals (cons car cdr cons-add cons-zero null)
     [(cons x y)     (traced (cons& (d #'x) (d #'y)))]
     [(car ls)       (traced (car& (d #'ls)))]
     [(cdr ls)       (traced (cdr& (d #'ls)))]
@@ -38,7 +39,7 @@
                   [i (in-naturals)])
          (let ([d-op (apply (partial i (syntax->datum #'op)) xs-trs)])
            (traced (+& acc& (*& d-op (d x)))))))]
-    [( ) (traced null&)]
+    [null (traced null&)]
     [c (traced 0.0)]))
 
 (define D/f*
@@ -53,11 +54,11 @@
                     ([z-assgn (reverse (trace-items y&))])
             (define dz&
               (dict-ref
-               derivatives (aid z-assgn)
-               (λ () (D-primitive (aexpr z-assgn) result-trace derivatives))))
+               derivatives (assignment-id z-assgn)
+               (λ () (D-primitive (assignment-expr z-assgn) result-trace derivatives))))
             {values
              (trace-append dz& result-trace)
-             (dict-set derivatives (aid z-assgn) dz&)}))
+             (dict-set derivatives (assignment-id z-assgn) dz&)}))
         dy&)))))
 
 ;; ----------------------------------------

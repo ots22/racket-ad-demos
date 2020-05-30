@@ -11,7 +11,10 @@
          "util.rkt"
          "trace.rkt"
          "trace-core.rkt"
-         "primitive-partial.rkt")
+         "primitive-partial.rkt"
+         "../cons-arithmetic/cons-arithmetic.rkt"
+         (for-template racket/base
+                       "../cons-arithmetic/cons-arithmetic.rkt"))
 
 ;; update-tr+terms :
 ;;              trace? (Dictionary symbol? (Listof trace?)) [symbol? trace?] ...
@@ -42,7 +45,7 @@
 (define (A-primitive w-expr Aw& A-terms)
   (define-syntax-rule (trace-of a) (trace-get a Aw&))
   (syntax-parse w-expr
-    #:datum-literals (cons car cdr cons-zero cons-add)
+    #:literals (cons car cdr cons-zero cons-add)
     [(cons x y)
      (update-tr+terms Aw& A-terms
                       #'x (traced (car& Aw&))
@@ -78,48 +81,45 @@
 ;;       the same shape as y.  This should almost certainly have a '1' in one
 ;;       position, and '0's elsewhere.
 ;; y&  : the trace of the result of calling the function to be differentiated
-;; xs  : the traces of the variables with respect to which we are
-;;       differentiating
+;; xs  : the ids of the variables with respect to which we are differentiating
 ;;
 ;; A/r : trace? trace? -> (Listof trace?) -> trace?
-(define& (A/r* y& Ay&)
-  (val->trace
-   (λ xs
-     (define-values (tr _ adjoints)
-       (for/fold ([tr (trace-append Ay& y&)]
-                  ;; terms (Listof ids) contributing to the adjoint
-                  [adjoint-terms (make-immutable-free-id-table
-                                  (hash (top-id y&) (list (top-id Ay&))))]
-                  ;; the adjoints of each id seen
-                  [adjoints (make-immutable-free-id-table)])
-                 ;; iterate through each assignment, starting with the
-                 ;; most recent
-                 ([w-assgn (trace-items y&)])
-         (define/contract Aw-terms (non-empty-listof trace?)
-           (for/list ([k (dict-ref adjoint-terms (aid w-assgn))])
-             (trace-get k tr)))
+(define ((A/r* y& Ay&) . xs)
+  (define-values (tr _ adjoints)
+    (for/fold ([tr (trace-append Ay& y&)]
+               ;; terms (Listof ids) contributing to the adjoint
+               [adjoint-terms (make-immutable-free-id-table
+                               (hash (top-id y&) (list (top-id Ay&))))]
+               ;; the adjoints of each id seen
+               [adjoints (make-immutable-free-id-table)])
+              ;; iterate through each assignment, starting with the
+              ;; most recent
+              ([w-assgn (trace-items y&)])
+      (define/contract Aw-terms (non-empty-listof trace?)
+        (for/list ([k (dict-ref adjoint-terms (assignment-id w-assgn))])
+          (trace-get k tr)))
 
-         (define Aw&
-           (match-let ([(cons a as) Aw-terms])
-             (trace-append
-              (foldl (top-val cons-add&) a as)
-              tr)))
-         ;; tr* : the assignments needed for the adjoints of the ids in the RHS
-         ;;       of w-assgn (appended to tr)
-         ;; adjoint-terms* : the updated map of id -> adjoint id
-         (define-values (tr* adjoint-terms*)
-           (A-primitive (aexpr w-assgn) Aw& adjoint-terms))
+      (define Aw&
+        (match-let ([(cons a as) Aw-terms])
+          (trace-append
+           (foldl (top-val cons-add&) a as)
+           tr)))
+      ;; tr* : the assignments needed for the adjoints of the ids in the RHS
+      ;;       of w-assgn (appended to tr)
+      ;; adjoint-terms* : the updated map of id -> adjoint id
+      (define-values (tr* adjoint-terms*)
+        (A-primitive (assignment-expr w-assgn) Aw& adjoint-terms))
 
-         {values tr*
-                 adjoint-terms*
-                 (dict-set adjoints (aid w-assgn) (top-id Aw&))}))
+      {values tr*
+              adjoint-terms*
+              (dict-set adjoints (assignment-id w-assgn) (top-id Aw&))}))
 
-     (let* ([tr* (trace-append (traced (cons-zero& Ay&)) tr)]
-            [zero-id (top-id tr*)])
-       (trace-prune
-        (cons->trace
-         (for/list ([x (map top-id xs)])
-           (trace-get (dict-ref adjoints x zero-id) tr*))))))))
+  (let* ([tr* (trace-append (traced (cons-zero& Ay&)) tr)]
+         [zero-id (top-id tr*)])
+    (trace-prune
+     (cons->trace
+      (for/list ([x xs])
+        (trace-get (dict-ref adjoints x zero-id) tr*))))))
 
 ;; ----------------------------------------
 
@@ -153,9 +153,7 @@
                   (let ([d-op (apply (partial (length (syntax-e #'(a ...)))
                                               (syntax->datum #'op))
                                      (map (curryr trace-get y&)
-                                          (append (syntax-e #'(a ...))
-                                                  (list #'b)
-                                                  (syntax-e #'(c ...)))))])
+                                          (syntax-e #'(a ... b c ...))))])
                     (traced (*& Aw& d-op)))]
                  ;; we know there *is* a use, so an error if we get here
                  ))
@@ -168,7 +166,7 @@
   (val->trace
    (λ xs
      (let ([y& (apply (top-val f&) xs)])
-       (apply (top-val (traced (A/r* y& Ay&))) xs)))))
+       (apply (A/r* y& Ay&) (map top-id xs))))))
 
 (define& (A/r-memo f& Ay&)
   (val->trace

@@ -1,21 +1,27 @@
 #lang racket
 
-(provide make-assignment
+(provide unknown
+         unknown?
+         make-assignment
          assignment?
          expr?
-         (rename-out [assignment-id id]
-                     [assignment-expr expr]
-                     [assignment-val val])
+         assignment-id
+         assignment-expr
+         assignment-val
          uses-in)
 
 (require syntax/parse
-         "util.rkt")
+         "util.rkt"
+         (for-template racket/base))
+
+(struct unknown ())
 
 (define (make-assignment #:id [id (next-name)]
                          #:val val
-                         #:expr [expr val])
+                         ;; #'null instead of #'()
+                         #:expr [expr (if (null? val) #'null val)])
   (syntax-property
-   #`(def #,id #,expr)
+   #`(define #,id #,expr)
    'val
    (datum->syntax #f val)
    #t))
@@ -31,7 +37,7 @@
 
 (define-syntax-class assignment
   #:description "an assignment"
-  [pattern ((~datum def) id:id expr:a-expr)])
+  [pattern ((~literal define) id:id expr:a-expr)])
 
 (define assignment?
   (syntax-parser
@@ -48,11 +54,7 @@
   [-> assignment? any/c]
   (cond
     [(syntax-property a 'val) => syntax->datum]
-    [else (raise-arguments-error
-           'val
-           "This assignment has no result (no 'val' syntax property set)"
-           "id" (assignment-id a)
-           "expr" (assignment-expr a))]))
+    [else (unknown)]))
 
 ;; The uses of x in an expr e.  A list of each "use" is returned,
 ;; where this is highlighted by putting the match in a list.
