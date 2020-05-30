@@ -84,7 +84,7 @@
 ;; xs  : the ids of the variables with respect to which we are differentiating
 ;;
 ;; A/r : trace? trace? -> (Listof trace?) -> trace?
-(define ((A/r* y& Ay&) . xs)
+(define (((A/r* y&) . xs) Ay&)
   (define-values (tr _ adjoints)
     (for/fold ([tr (trace-append Ay& y&)]
                ;; terms (Listof ids) contributing to the adjoint
@@ -123,53 +123,54 @@
 
 ;; ----------------------------------------
 
-(define& (A/r*-memo y& Ay&)
-  (val->trace
-   (λ xs
-     ;; unused arguments not present in y&, so explicitly append xs
-     (define y+xs& (apply trace-append y& xs))
-     ;; A : symbol? -> trace?
-     (define (A x)
-       (define x& (trace-get x y+xs&))
-       (if (free-identifier=? x (top-id y&))
-           Ay&
-           (for*/fold ([acc& (traced (cons-zero& x&))])
-                      ([w& (depends-on x y&)]
-                       [term (uses-in x (top-expr w&))])
-             (define Aw& (A (top-id w&)))
-             (define inc&
-               (syntax-parse term
-                 #:datum-literals (cons car cdr cons-zero cons-add)
-                 [(cons (a) b) (traced (car& Aw&))]
-                 [(cons a (b)) (traced (cdr& Aw&))]
-                 [(car (a))
-                  (traced (cons& Aw& (cons-zero& (cdr& x&))))]
-                 [(cdr (a))
-                  (traced (cons& (cons-zero& (car& x&)) Aw&))]
-                 [(cons-zero (a)) (traced (cons-zero& x&))]
-                 [(cons-add (a) b) (traced Aw&)]
-                 [(cons-add a (b)) (traced Aw&)]
-                 [(op a ... (b) c ...)
-                  (let ([d-op (apply (partial (length (syntax-e #'(a ...)))
-                                              (syntax->datum #'op))
-                                     (map (curryr trace-get y&)
-                                          (syntax-e #'(a ... b c ...))))])
-                    (traced (*& Aw& d-op)))]
-                 ;; we know there *is* a use, so an error if we get here
-                 ))
-             (traced (cons-add& acc& inc&)))))
-     (cons->trace (map (compose1 A top-id) xs)))))
+(define ((A/r*-memo y&) . xs)
+  (define y+xs& (apply trace-append y& xs))
+  (λ (Ay&)
+    ;; unused arguments not present in y&, so explicitly append xs
+    ;; A : symbol? -> trace?
+    (define (A x)
+      (define x& (trace-get x y+xs&))
+      (if (free-identifier=? x (top-id y&))
+          Ay&
+          (for*/fold ([acc& (traced (cons-zero& x&))])
+                     ([w& (depends-on x y&)]
+                      [term (uses-in x (top-expr w&))])
+            (define Aw& (A (top-id w&)))
+            (define inc&
+              (syntax-parse term
+                #:datum-literals (cons car cdr cons-zero cons-add)
+                [(cons (a) b) (traced (car& Aw&))]
+                [(cons a (b)) (traced (cdr& Aw&))]
+                [(car (a))
+                 (traced (cons& Aw& (cons-zero& (cdr& x&))))]
+                [(cdr (a))
+                 (traced (cons& (cons-zero& (car& x&)) Aw&))]
+                [(cons-zero (a)) (traced (cons-zero& x&))]
+                [(cons-add (a) b) (traced Aw&)]
+                [(cons-add a (b)) (traced Aw&)]
+                [(op a ... (b) c ...)
+                 (let ([d-op (apply (partial (length (syntax-e #'(a ...)))
+                                             (syntax->datum #'op))
+                                    (map (curryr trace-get y&)
+                                         (syntax-e #'(a ... b c ...))))])
+                   (traced (*& Aw& d-op)))]
+                ;; we know there *is* a use, so an error if we get here
+                ))
+            (traced (cons-add& acc& inc&)))))
+    (cons->trace (map (compose1 A top-id) xs))))
 
 ;; ----------------------------------------
 
-(define& (A/r f& Ay&)
+(define& (A/r f&)
   (val->trace
    (λ xs
      (let ([y& (apply (top-val f&) xs)])
-       (apply (A/r* y& Ay&) (map top-id xs))))))
+       (val->trace
+        (apply (A/r* y&) (map top-id xs)))))))
 
-(define& (A/r-memo f& Ay&)
+(define& (A/r-memo f&)
   (val->trace
    (λ xs
      (let ([y& (apply (top-val f&) xs)])
-       (apply (top-val (traced (A/r*-memo y& Ay&))) xs)))))
+       (val->trace
+        (apply (A/r*-memo y&) xs))))))

@@ -42,73 +42,63 @@
     [null (traced null&)]
     [c (traced 0.0)]))
 
-(define D/f*
-  (val->trace
-   (λ (y& . dxs)
-     (val->trace
-      (λ xs
-        (define-values (dy& _)
-          (for/fold ([result-trace y&]
-                     [derivatives (make-immutable-free-id-table
-                                   (make-hash (map cons (map top-id xs) dxs)))])
-                    ([z-assgn (reverse (trace-items y&))])
-            (define dz&
-              (dict-ref
-               derivatives (assignment-id z-assgn)
-               (λ () (D-primitive (assignment-expr z-assgn) result-trace derivatives))))
-            {values
-             (trace-append dz& result-trace)
-             (dict-set derivatives (assignment-id z-assgn) dz&)}))
-        dy&)))))
+(define (((D/f* y&) . xs) . dxs)
+  (define-values (dy& _)
+    (for/fold ([result-trace y&]
+               [derivatives (make-immutable-free-id-table
+                             (make-hash (map cons (map top-id xs) dxs)))])
+              ([z-assgn (reverse (trace-items y&))])
+      (define dz&
+        (dict-ref
+         derivatives (assignment-id z-assgn)
+         (λ () (D-primitive (assignment-expr z-assgn)
+                            result-trace derivatives))))
+      {values
+       (trace-append dz& result-trace)
+       (dict-set derivatives (assignment-id z-assgn) dz&)}))
+  dy&)
 
 ;; ----------------------------------------
 
-(define D/f*-memo
-  (val->trace
-   (λ (y& . dxs)
-     (val->trace
-      (λ xs
-        (define dxs-map
-          (make-immutable-free-id-table
-           (make-hash (map cons (map top-id xs) dxs))))
-        ;; d : symbol? -> trace?
-        (define/memo (d z)
-          ;; so we can make a recursive call inside 'traced' conveniently
-          (define d& (val->trace d))
-          (define z& (trace-get z y&))
-          (dict-ref
-           dxs-map z 
-           (λ () (match (top-expr z&)
-                   [(list 'cons a b) (traced (cons& (d& a) (d& b)))]
-                   [(list 'car as)   (traced (car& (d& as)))]
-                   [(list 'cdr as)   (traced (cdr& (d& as)))]
-                   [(list 'cons-add a b) (traced (cons-add& (d& a) (d& b)))]
-                   [(list 'cons-zero a) z&]
-                   [(list op as ...)
-                    (let ([as-trs (map (curryr trace-get y&) as)])
-                      (for/fold ([acc& (traced 0.0)])
-                                ([a as]
-                                 [i (in-naturals)])
-                        (let ([d-op (apply (partial i op) as-trs)])
-                          (traced (+& acc& (*& d-op (d& a)))))))]
-                   ['()  (traced null&)]
-                   [c    (traced 0.0)]))))
-        (d (top-id y&)))))))
+(define (((D/f*-memo y&) . xs) . dxs)
+  (define dxs-map
+    (make-immutable-free-id-table
+     (make-hash (map cons (map top-id xs) dxs))))
+  ;; d : symbol? -> trace?
+  (define (d z)
+    ;; so we can make a recursive call inside 'traced' conveniently
+    (define d& (val->trace d))
+    (define z& (trace-get z y&))
+    (dict-ref
+     dxs-map z 
+     (λ () (syntax-parse (top-expr z&)
+             #:datum-literals (cons car cdr cons-zero cons-add null)
+             [(cons a b) (traced (cons& (d& #'a) (d& #'b)))]
+             [(car as)   (traced (car& (d& #'as)))]
+             [(cdr as)   (traced (cdr& (d& #'as)))]
+             [(cons-add a b) (traced (cons-add& (d& #'a) (d& #'b)))]
+             [(cons-zero a) z&]
+             [(op as ...)
+              (let ([as-trs (map (curryr trace-get y&) (syntax-e #'(as ...)))])
+                (for/fold ([acc& (traced 0.0)])
+                          ([a (syntax-e #'(as ...))]
+                           [i (in-naturals)])
+                  (let ([d-op (apply (partial i (syntax->datum #'op)) as-trs)])
+                    (traced (+& acc& (*& d-op (d& a)))))))]
+             [null  (traced null&)]
+             [c     (traced 0.0)]))))
+  (d (top-id y&)))
 
 ;; ----------------------------------------
 
-(define D/f
+(define& (D/f f&)
   (val->trace
-   (λ (f& . dxs)
-     (val->trace
-      (λ xs
-        (let ([y& (apply (top-val f&) xs)])
-          (apply (top-val (apply (top-val D/f*) y& dxs)) xs)))))))
+   (λ xs
+     (let ([y& (apply (top-val f&) xs)])
+       (val->trace (apply (D/f* y&) xs))))))
 
-(define D/f-memo
+(define& (D/f-memo f&)
   (val->trace
-   (λ (f& . dxs)
-     (val->trace
-      (λ xs
-        (let ([y& (apply (top-val f&) xs)])
-          (apply (top-val (apply (top-val D/f*) y& dxs)) xs)))))))
+   (λ xs
+     (let ([y& (apply (top-val f&) xs)])     
+       (val->trace (apply (D/f*-memo y&) xs))))))

@@ -107,20 +107,18 @@
   (provide (all-defined-out))
 
   (define (const_one x)
-    ([D/f (λ (y) (+ x y)) 1.0] 1.0))
+    ((D/f (λ (y) (+ x y))) 1.0) 1.0)
 
   ;;
 
   (define (cube x) (* x (* x x)))
 
-  (define cube_0  (D/f cube 1.0))
-  (define cube_0-memo  (D/f cube 1.0))
-  (define (cube_0/expect x)  (* 3.0 (* x x)))
+  (define (cube_0 x) (((D/f cube) x) 1.0))
+  (define (cube_0-memo x) (((D/f-memo cube) x) 1.0))
+  (define (cube_0/expect x) (* 3.0 (* x x)))
 
-  (define (∇cube/f x) (list ((D/f cube 1.0) x)))
-  (define (∇cube/f-memo x) (list ((D/f cube 1.0) x)))
-  (define ∇cube/r (A/r cube 1.0))
-  (define ∇cube/r-memo (A/r cube 1.0))
+  (define (∇cube/r x) (((A/r cube) x) 1.0))
+  (define (∇cube/r-memo x) (((A/r-memo cube) x) 1.0))
   (define (∇cube/expect x) (list (cube_0/expect x)))
 
   ;;
@@ -132,26 +130,24 @@
           (rec x (- n 1) (* r x))))
     (rec x n 1.0))
 
-  (define pow_0 (D/f pow 1.0 0.0))
-  (define pow_0-memo (D/f-memo pow 1.0 0.0))
+  (define (pow_0 x n) (((D/f pow) x n) 1.0 0.0))
+  (define (pow_0-memo x n) (((D/f-memo pow) x n) 1.0 0.0))
   (define (pow_0/expect x n) (* n (pow x (- n 1))))
 
   ;;
 
   (define (f x y) (+ x (* y y)))
 
-  (define f_0 (D/f f 1.0 0.0))
-  (define f_0-memo (D/f-memo f 1.0 0.0))
+  (define (f_0 x y) (((D/f f) x y) 1.0 0.0))
+  (define (f_0-memo x y) (((D/f-memo f) x y) 1.0 0.0))
   (define (f_0/expect x y) 1.0)
 
-  (define f_1 (D/f f 0.0 1.0))
-  (define f_1-memo (D/f-memo f 0.0 1.0))
+  (define (f_1 x y) (((D/f f) x y) 0.0 1.0))
+  (define (f_1-memo x y) (((D/f-memo f) x y) 0.0 1.0))
   (define (f_1/expect x y) (* 2.0 y))
 
-  (define (∇f/f x y) (list (f_0 x y) (f_1 x y)))
-  (define (∇f/f-memo x y) (list (f_0-memo x y) (f_1-memo x y)))
-  (define ∇f/r (A/r f 1.0))
-  (define ∇f/r-memo (A/r-memo f 1.0))
+  (define (∇f/r x y) (((A/r f) x y) 1.0))
+  (define (∇f/r-memo x y) (((A/r-memo f) x y) 1.0))
   (define (∇f/expect x y) (list (f_0/expect x y) (f_1/expect x y)))
 
   ;;
@@ -163,25 +159,25 @@
     (cdr (cons (* y 2) (* x 3))))
 
   (define (∇g1/f x y)
-    (list ((D/f g1 1.0 0.0) x y)
-          ((D/f g1 0.0 1.0) x y)))
+    (define Dg1 ((D/f g1) x y))
+    (list (Dg1 1.0 0.0) (Dg1 0.0 1.0)))
   (define (∇g1/f-memo x y)
-    (list ((D/f-memo g1 1.0 0.0) x y)
-          ((D/f-memo g1 0.0 1.0) x y)))
+    (define Dg1 ((D/f-memo g1) x y))
+    (list (Dg1 1.0 0.0) (Dg1 0.0 1.0)))
 
-  (define ∇g1/r (A/r g1 1.0))
-  (define ∇g1/r-memo (A/r-memo g1 1.0))
+  (define (∇g1/r x y) (((A/r g1) x y) 1.0))
+  (define (∇g1/r-memo x y) (((A/r-memo g1) x y) 1.0))
   (define (∇g1/expect x y) (list 0.0 2.0))
 
   (define (∇g2/f x y)
-    (list ((D/f g2 1.0 0.0) x y)
-          ((D/f g2 0.0 1.0) x y)))
+    (define Dg2 ((D/f g2) x y))
+    (list (Dg2 1.0 0.0) (Dg2 0.0 1.0)))
   (define (∇g2/f-memo x y)
-    (list ((D/f-memo g2 1.0 0.0) x y)
-          ((D/f-memo g2 0.0 1.0) x y)))
+    (define Dg2 ((D/f-memo g2) x y))
+    (list (Dg2 1.0 0.0) (Dg2 0.0 1.0)))
 
-  (define ∇g2/r (A/r g2 1.0))
-  (define ∇g2/r-memo (A/r-memo g2 1.0))
+  (define (∇g2/r x y) (((A/r g2) x y) 1.0))
+  (define (∇g2/r-memo x y) (((A/r-memo g2) x y) 1.0))
   (define (∇g2/expect x y) (list 3.0 0.0))
 
   ;;
@@ -190,28 +186,30 @@
     (cons (cdr c1) (car c1)))
 
   (define (Jg3/f c1 c2)
-    (list (cons ((D/f g3 (cons 1.0 0.0) (cons 0.0 0.0)) c1 c2)
-                ((D/f g3 (cons 0.0 1.0) (cons 0.0 0.0)) c1 c2))
-          (cons ((D/f g3 (cons 0.0 0.0) (cons 1.0 0.0)) c1 c2)
-                ((D/f g3 (cons 0.0 0.0) (cons 0.0 1.0)) c1 c2))))
+    (define Dg3 ((D/f g3) c1 c2))
+    (list (cons (Dg3 (cons 1.0 0.0) (cons 0.0 0.0))
+                (Dg3 (cons 0.0 1.0) (cons 0.0 0.0)))
+          (cons (Dg3 (cons 0.0 0.0) (cons 1.0 0.0))
+                (Dg3 (cons 0.0 0.0) (cons 0.0 1.0)))))
 
   (define (Jg3/f-memo c1 c2)
-    (list (cons ((D/f-memo g3 (cons 1.0 0.0) (cons 0.0 0.0)) c1 c2)
-                ((D/f-memo g3 (cons 0.0 1.0) (cons 0.0 0.0)) c1 c2))
-          (cons ((D/f-memo g3 (cons 0.0 0.0) (cons 1.0 0.0)) c1 c2)
-                ((D/f-memo g3 (cons 0.0 0.0) (cons 0.0 1.0)) c1 c2))))
+    (define Dg3 ((D/f-memo g3) c1 c2))
+    (list (cons (Dg3 (cons 1.0 0.0) (cons 0.0 0.0))
+                (Dg3 (cons 0.0 1.0) (cons 0.0 0.0)))
+          (cons (Dg3 (cons 0.0 0.0) (cons 1.0 0.0))
+                (Dg3 (cons 0.0 0.0) (cons 0.0 1.0)))))
 
   (define (Jg3/expect c1 c2)
     (list (cons (cons 0.0 1.0) (cons 1.0 0.0))
           (cons (cons 0.0 0.0) (cons 0.0 0.0))))
 
   (define (J*g3/r c1 c2)
-    (cons ((A/r g3 (cons 1.0 0.0)) c1 c2)
-          ((A/r g3 (cons 0.0 1.0)) c1 c2)))
+    (cons (((A/r g3) c1 c2) (cons 1.0 0.0))
+          (((A/r g3) c1 c2) (cons 0.0 1.0))))
 
   (define (J*g3/r-memo c1 c2)
-    (cons ((A/r-memo g3 (cons 1.0 0.0)) c1 c2)
-          ((A/r-memo g3 (cons 0.0 1.0)) c1 c2)))
+    (cons (((A/r-memo g3) c1 c2) (cons 1.0 0.0))
+          (((A/r-memo g3) c1 c2) (cons 0.0 1.0))))
 
   (define (J*g3/expect c1 c2)
     (cons (list (cons 0.0 1.0) (cons 0.0 0.0))
@@ -226,20 +224,22 @@
                (cons (cdr c2) (* 2 (car c2))))))
 
   (define (g4_0/f c1 c2)
-    (cons ((D/f g4 (cons 1.0 0.0) (cons-zero c2)) c1 c2)
-          ((D/f g4 (cons 0.0 1.0) (cons-zero c2)) c1 c2)))
+    (define Dg4 ((D/f g4) c1 c2))
+    (cons (Dg4 (cons 1.0 0.0) (cons-zero c2))
+          (Dg4 (cons 0.0 1.0) (cons-zero c2))))
 
   (define (g4_0/f-memo c1 c2)
-    (cons ((D/f-memo g4 (cons 1.0 0.0) (cons-zero c2)) c1 c2)
-          ((D/f-memo g4 (cons 0.0 1.0) (cons-zero c2)) c1 c2)))
+    (define Dg4 ((D/f-memo g4) c1 c2))
+    (cons (Dg4 (cons 1.0 0.0) (cons-zero c2))
+          (Dg4 (cons 0.0 1.0) (cons-zero c2))))
 
   (define (g4_0/r c1 c2)
-    (cons (car ((A/r g4 (cons 1.0 0.0)) c1 c2))
-          (car ((A/r g4 (cons 0.0 1.0)) c1 c2))))
+    (cons (car (((A/r g4) c1 c2) (cons 1.0 0.0)))
+          (car (((A/r g4) c1 c2) (cons 0.0 1.0)))))
 
   (define (g4_0/r-memo c1 c2)
-    (cons (car ((A/r-memo g4 (cons 1.0 0.0)) c1 c2))
-          (car ((A/r-memo g4 (cons 0.0 1.0)) c1 c2))))
+    (cons (car (((A/r-memo g4) c1 c2) (cons 1.0 0.0)))
+          (car (((A/r-memo g4) c1 c2) (cons 0.0 1.0)))))
 
   (define (g4_0/expect c1 c2)
     (cons (cons 2.0 0.0) (cons 0.0 1.0)))
@@ -264,8 +264,6 @@
                             (top-val [traced (cube_0/expect x)]))
 
                 (all-equal? (top-val [traced (∇cube/expect x)])
-                            (top-val [traced (∇cube/f x)])
-                            (top-val [traced (∇cube/f-memo x)])
                             (top-val [traced (∇cube/r x)])
                             (top-val [traced (∇cube/r-memo x)]))
                 )))
@@ -295,8 +293,6 @@
                             (top-val [traced (f_1-memo x y)]))
 
                 (all-equal? (top-val [traced (∇f/expect x y)])
-                            (top-val [traced (∇f/f x y)])
-                            (top-val [traced (∇f/f-memo x y)])
                             (top-val [traced (∇f/r x y)])
                             (top-val [traced (∇f/r-memo x y)])))))
 
@@ -359,17 +355,18 @@
     (list (* x y) (* x y) (* y y)))
 
   (define (Jh/f x y)
-    (list ((D/f h 1.0 0.0) x y)
-          ((D/f h 0.0 1.0) x y)))
+    (define Dh ((D/f h) x y))
+    (list (Dh 1.0 0.0) (Dh 0.0 1.0)))
 
   (define (Jh/expect x y)
     (list (list y y 0.0)
           (list x x (* 2.0 y))))
 
   (define (J*h/r x y)
-    (list ((A/r h (list 1.0 0.0 0.0)) x y)
-          ((A/r h (list 0.0 1.0 0.0)) x y)
-          ((A/r h (list 0.0 0.0 1.0)) x y)))
+    (define Ah ((A/r h) x y))
+    (list (Ah (list 1.0 0.0 0.0))
+          (Ah (list 0.0 1.0 0.0))
+          (Ah (list 0.0 0.0 1.0))))
 
   (define (J*h/expect x y)
     (list (list y x)
