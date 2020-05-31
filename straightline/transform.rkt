@@ -15,13 +15,13 @@
   (apply make-trace (reverse (syntax-e body))))
 
 (define-syntax (return stx)
-  (raise-syntax-error "Use only within define/d"))
+  (raise-syntax-error #f "permitted only within define/d" stx))
 
 (define-syntax (call stx)
-  (raise-syntax-error "Use only within define/d"))
+  (raise-syntax-error #f "permitted only within define/d" stx))
 
 (define-syntax (call-if stx)
-  (raise-syntax-error "Use only within define/d"))
+  (raise-syntax-error #f "permitted only within define/d" stx))
 
 (begin-for-syntax
   (define-syntax-class final-expr
