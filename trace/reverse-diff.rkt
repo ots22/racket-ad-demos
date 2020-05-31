@@ -95,15 +95,16 @@
               ;; iterate through each assignment, starting with the
               ;; most recent
               ([w-assgn (trace-items y&)])
-      (define/contract Aw-terms (non-empty-listof trace?)
-        (for/list ([k (dict-ref adjoint-terms (assignment-id w-assgn))])
+      (define Aw-terms ;(non-empty-listof trace?)
+        (for/list ([k (dict-ref adjoint-terms (assignment-id w-assgn) (list))])
           (trace-get k tr)))
 
       (define Aw&
-        (match-let ([(cons a as) Aw-terms])
-          (trace-append
-           (foldl (top-val cons-add&) a as)
-           tr)))
+        (match Aw-terms
+          [(cons a as) (trace-append
+                        (foldl (top-val cons-add&) a as)
+                        tr)]
+          [(list) (trace-append [traced (cons-zero& Ay&)] tr)]))
       ;; tr* : the assignments needed for the adjoints of the ids in the RHS
       ;;       of w-assgn (appended to tr)
       ;; adjoint-terms* : the updated map of id -> adjoint id

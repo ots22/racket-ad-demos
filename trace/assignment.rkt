@@ -16,10 +16,15 @@
 
 (struct unknown ())
 
-(define (make-assignment #:id [id (next-name)]
-                         #:val val
-                         ;; #'null instead of #'()
-                         #:expr [expr (if (null? val) #'null val)])
+(define (make-assignment
+         #:id [id (next-name)]
+         #:val [val (unknown)]
+         #:expr [expr (cond
+                        [(unknown? val)
+                         (raise-arguments-error
+                          'make-assignment "must specify either val or expr")]
+                        [(null? val) #'null] ; Use #'null instead of #'()
+                        [else val])])
   (syntax-property
    #`(define #,id #,expr)
    'val
