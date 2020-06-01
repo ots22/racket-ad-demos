@@ -24,15 +24,16 @@
   (raise-syntax-error #f "permitted only within define/d" stx))
 
 (begin-for-syntax
-  (define-syntax-class final-expr
+  (define-syntax-class result-expr
     #:literals (return)
     (pattern (return)
-             #:attr final-fn #'(lambda (x) (list (identity x) identity)))
+             #:attr expr #'(lambda (x) (list (identity x) identity)))
     (pattern (call f)
-             #:attr final-fn #'(curry apply f))
+             #:attr expr #'(curry apply f))
     (pattern (call-if test then-call else-call)
-             #:attr final-fn #'(if test (curry apply then-call) (curry apply else-call)))
-    ))
+             #:attr expr #'(if test
+                               (curry apply then-call)
+                               (curry apply else-call)))))
 
 ;; artificially add definitions (to 'constants', with 'nothing'
 ;; vals), which will are needed for A/r* to work properly, and
@@ -40,29 +41,29 @@
 ;;
 (define-syntax define/d
   (syntax-parser
-    [(_ (f args ...) body ... final:final-expr)
-     #:with (args* ...) (generate-temporaries #'(args ...))
-     #:with (Ay Ay*) (generate-temporaries #'(Ay Ay*))
-     #:with (arg-defs ...) #'((define args args*) ...)
-     #:do [(define body-tr (defs->trace #'(arg-defs ... body ...)))
-           (define body*-tr ((apply (A/r* body-tr) (syntax-e #'(args ...)))
-                             (make-trace (make-assignment #:expr #'Ay*))))]
-     #:with (body* ...)
+    [(_ (f:id args:id ...)
+        body:assignment ... last-body:assignment
+        result-out:result-expr)
+     #:with (args*:id ...) (generate-temporaries #'(args ...))
+     #:with (arg-defs:assignment ...) #'((define args args*) ...)
+     #:do
+     [(define body-tr (defs->trace #'(arg-defs ... body ... last-body)))
+      (define body*-tr ((apply (A/r* body-tr) (syntax-e #'(args ...)))
+                        (make-trace (make-assignment #:expr #'Ay*))))]
+     #:with (body*:assignment ... last-body*:assignment)
      (reverse
       (trace-items
-       (trace-filter-out (map assignment-id (trace-items body-tr))
-                         body*-tr)))
-     #:with last-id (assignment-id (last (syntax-e #'(body ...))))
-     #:with last-id* (assignment-id (last (syntax-e #'(body* ...))))
+       (trace-filter-out (map assignment-id (trace-items body-tr)) body*-tr)))
+     ;;
      #'(define (f args ...)
          (let ((args* args) ...)
            arg-defs ...
-           body ...
-           (define fin (final.final-fn last-id))
-           (list (car fin) (lambda (Ay)
-                             (define Ay* ((cadr fin) Ay))
-                             body* ...
-                             last-id*))))]))
+           body ... last-body
+           (define result (result-out.expr last-body.id))
+           (list (car result) (lambda (Ay)
+                                (define Ay* ((cadr result) Ay))
+                                body* ... last-body*
+                                last-body*.id))))]))
 
 (module+ test
   (define/d (f a b)
