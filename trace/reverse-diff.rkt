@@ -95,7 +95,7 @@
               ;; iterate through each assignment, starting with the
               ;; most recent
               ([w-assgn (trace-items y&)])
-      (define Aw-terms ;(non-empty-listof trace?)
+      (define Aw-terms
         (for/list ([k (dict-ref adjoint-terms (assignment-id w-assgn) (list))])
           (trace-get k tr)))
 
