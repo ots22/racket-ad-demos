@@ -2,6 +2,7 @@
 
 (provide unknown
          unknown?
+         assignment
          make-assignment
          assignment?
          expr?
