@@ -3,33 +3,33 @@
 (require "diff.rkt")
 
 (define (cube x) (* x (* x x)))
-((A/r cube 1.0) 1)
+(((A/r cube) 1.0) 1.0)
 
 (define (f x y) (* (+ x y) (* x x)))
-((D/f f 1.0 0.0) 2 10)
-((D/f f 0.0 1.0) 2 10)
+(((D/f f) 2.0 10.0) 1.0 0.0)
+(((D/f f) 2.0 10.0) 0.0 1.0)
 
-((A/r f 1.0) 2 10)
+(((A/r f) 2.0 10.0) 1.0)
 
 
 (define (g x y) (list (* x x) y))
-(trace-display ((D/f g 1.0 0.0) 2 3))
-(trace-display ((D/f g 0.0 1.0) 2 3))
+(trace-display (((D/f g) 2.0 3.0) 1.0 0.0))
+(trace-display (((D/f g) 2.0 3.0) 0.0 1.0))
 
-(trace-display ((A/r g (list 1.0 0.0)) 2 3))
-(trace-display ((A/r g (list 0.0 1.0)) 2 3))
+(trace-display (((A/r g) 2.0 3.0) (list 1.0 0.0)))
+(trace-display (((A/r g) 2.0 3.0) (list 0.0 1.0)))
 
 (define (h x y) (car (cdr (list (* x x) (* x y) (* y y)))))
 
-((D/f (D/f h 1.0 0.0) 1.0 0.0) 3.0 4.0)
+(((D/f (λ (x y) (((D/f h) x y) 1.0 0.0))) 3.0 4.0) 1.0 0.0)
 
-((A/r (A/r h 1.0) (list 1.0 0.0)) 3.0 4.0)
+(((A/r (λ (x y) (((A/r h) x y) 1.0))) 3.0 4.0) (list 1.0 0.0))
 
-(define ∇h (A/r h 1.0))
+(define ∇h (λ (x y) (((A/r h) x y) 1.0)))
 
 (define (k x) (car (list x x)))
 
-((A/r k 1.0) 3.0)
+(((A/r k) 3.0) 1.0)
 
 (define (m x y)
   (define z 1)
