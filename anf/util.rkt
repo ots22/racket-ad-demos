@@ -1,9 +1,11 @@
 #lang racket
 
 (provide pattern-lambda
-         (rename-out [pattern-lambda pat-λ]))
+         (rename-out [pattern-lambda pat-λ])
+         syntax-class->predicate)
 
-(require (for-syntax syntax/parse))
+(require syntax/parse
+         (for-syntax syntax/parse))
 
 ;; like lambda, except all arguments are treated as pattern variables
 ;; for constructing a syntax object
@@ -13,3 +15,8 @@
      #'(lambda (args ...)
          (with-syntax ([args args] ...)
            body))]))
+
+(define-syntax-rule (syntax-class->predicate stx-class)
+  (syntax-parser
+    [(~var _ stx-class) #t]
+    [_ #f]))
