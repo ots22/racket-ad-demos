@@ -16,6 +16,7 @@
          dict-list-append
          dict-list-update
          syntax-reverse
+         (for-syntax identifier-append)
          suffix-in)
 
 (require racket/syntax
