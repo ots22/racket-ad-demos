@@ -155,7 +155,8 @@
     [x #'x]
     ;;
     [V #:with x (generate-temporary)
-       #'(let-values (((x) V)) x)]))
+       #:with sV (simplify-anf-value #'V identity)
+       #'(let-values (((x) sV)) x)]))
 
 (define (simplify-anf-value v k)
   (syntax-parse v
