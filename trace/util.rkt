@@ -15,6 +15,7 @@
          remove-duplicates-before
          dict-list-append
          dict-list-update
+         dict-list-update*
          syntax-reverse
          (for-syntax identifier-append)
          suffix-in)
@@ -191,12 +192,17 @@
     (check-equal? (dict-list-append (hash 1 '(2 3)) 2 '(0 5))
                   (hash 1 '(2 3) 2 '(0 5)))))
 
-(define (dict-list-update h #:key key-fn . kvs)
+(define (dict-list-update h #:key [key-fn identity] . kvs)
   (for/fold ([h* h])
             ([kv (chunk 2 kvs)])
     (let ([k (car kv)]
           [v (cadr kv)])
       (dict-list-append h* k (list (key-fn v))))))
+
+(define (dict-list-update* h #:key [key-fn identity] ks vs)
+  (foldl (λ (k v dict) (dict-list-append dict k (list (key-fn v))))
+         h
+         ks vs))
 
 (module+ test
   (test-case "Adjoint term update helper"
