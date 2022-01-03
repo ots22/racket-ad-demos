@@ -78,3 +78,8 @@ are available as
 [a pdf](https://github.com/ots22/rackpropagator/tree/master/talk/slides-lambda-days.pdf)
 or as
 [a Racket slideshow program](https://github.com/ots22/rackpropagator/tree/master/talk/slides-lambda-days.rkt).
+
+# License
+
+We follow the lead of the main Racket license:
+This code is distributed under the MIT license and the Apache version 2.0 license, at your option. 
