@@ -73,7 +73,7 @@ al (2018)](https://arxiv.org/abs/1803.10228).
 ## Additional Material
 
 The slides for the presentation at
-[Lambda Days 2020](https://www.lambdadays.org/lambdadays2020)
+[Lambda Days 2020](https://www.lambdadays.org/lambdadays2020) ([video](https://youtu.be/treqJHnl7lY))
 are available as
 [a pdf](https://github.com/ots22/rackpropagator/tree/master/talk/slides-lambda-days.pdf)
 or as
