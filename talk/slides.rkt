@@ -1226,8 +1226,7 @@ latex
    #:title "Program transformation"
    (ht-append
     (vl-append
-     (tt "#lang rackpropagator/⬋ ")
-     (tt "  straightline")
+     (tt "#lang ad/straightline")
      (hb-append
       (code
        (define (f x y)
@@ -1497,7 +1496,7 @@ latex
    }
 
   {slide
-   (big (t "http://github.com/ots22/rackpropagator"))
+   (big (t "http://github.com/ots22/racket-ad-demos"))
    }
 
   (define (cite type [year #f] #:url url #:title title #:authors authors)

@@ -1,6 +1,6 @@
 ![raco test](https://github.com/ots22/racket-ad-demos/workflows/raco%20test/badge.svg)
 
-# rackpropagator
+# racket-ad-demos
 Exploring Automatic Differentiation in Racket
 
 ## Getting started
@@ -13,7 +13,7 @@ To install the package, run (in this directory):
 `raco pkg install`
 
 You can also run
-`raco pkg install http://github.com/ots22/rackpropagator`
+`raco pkg install http://github.com/ots22/racket-ad-demos`
 to fetch the package and install it directly from GitHub.
 
 ## Contents
@@ -28,7 +28,7 @@ This is a straightfoward implementation of AD with dual-numbers.
 
 ```racket
 #lang racket
-(require rackpropagator/dual-numbers)
+(require ad/dual-numbers)
 
 (define (f x y)
   (+ (* x x) (* x y)))
@@ -45,8 +45,8 @@ perturbation confusion in certain circumstances.
 ## Program tracing
 
 ```racket
-#lang rackpropagator/trace
-(require rackpropagator/trace/diff)
+#lang ad/trace
+(require ad/trace/diff)
 
 ;; ...
 ```
@@ -75,9 +75,9 @@ al (2018)](https://arxiv.org/abs/1803.10228).
 The slides for the presentation at
 [Lambda Days 2020](https://www.lambdadays.org/lambdadays2020) ([video](https://youtu.be/treqJHnl7lY))
 are available as
-[a pdf](https://github.com/ots22/rackpropagator/tree/master/talk/slides-lambda-days.pdf)
+[a pdf](https://github.com/ots22/racket-ad-demos/tree/master/talk/slides-lambda-days.pdf)
 or as
-[a Racket slideshow program](https://github.com/ots22/rackpropagator/tree/master/talk/slides-lambda-days.rkt).
+[a Racket slideshow program](https://github.com/ots22/racket-ad-demos/tree/master/talk/slides-lambda-days.rkt).
 
 # License
 

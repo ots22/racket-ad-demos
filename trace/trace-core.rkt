@@ -1,7 +1,7 @@
 #lang racket
 
 ;; Implementation of the core functions and special forms in the
-;; rackpropagator/traced lang.
+;; ad/trace lang.
 
 ;; Traced counterparts of several of these are provided with names
 ;; ending in '&', and reprovided without the '&' from trace-lang.rkt.
