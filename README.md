@@ -1,4 +1,4 @@
-![raco test](https://github.com/ots22/rackpropagator/workflows/raco%20test/badge.svg)
+![raco test](https://github.com/ots22/racket-ad-demos/workflows/raco%20test/badge.svg)
 
 # rackpropagator
 Exploring Automatic Differentiation in Racket
